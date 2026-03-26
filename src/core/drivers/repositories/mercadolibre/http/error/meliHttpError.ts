@@ -18,6 +18,14 @@ export class MeliHttpErrorHandler {
       }
 
       // 🔴 Errores reales
+      console.error('[MELI API UPSTREAM ERROR]', {
+        status: status ?? 'UNKNOWN',
+        url: error.config?.url,
+        method: error.config?.method,
+        data: error.response?.data,
+        message: error.message,
+      });
+
       throw new Error(
         `[MELI API ERROR] ${status ?? 'UNKNOWN'} – ${error.message}`,
       );
