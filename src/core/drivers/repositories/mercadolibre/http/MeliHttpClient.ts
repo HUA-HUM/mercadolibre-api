@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { Injectable } from '@nestjs/common';
 import { GetValidMeliAccessTokenInteractor } from 'src/core/interactors/GetValidMeliAccessTokenInteractor';
+import type { MeliRequestConfig } from 'src/core/adapters/repositories/mercadolibre/http/IMeliHttpClient';
 import { MeliHttpErrorHandler } from './error/meliHttpError';
 
 @Injectable()
@@ -14,12 +15,12 @@ export class MeliHttpClient {
     });
   }
 
-  async get<T>(url: string, config?: AxiosRequestConfig): Promise<T | null> {
+  async get<T>(url: string, config?: MeliRequestConfig): Promise<T | null> {
     try {
-      const token = await this.getToken.execute();
+      const token = await this.getToken.execute(config?.appKey);
 
       const response = await this.client.get<T>(url, {
-        ...config,
+        ...this.toAxiosConfig(config),
         headers: {
           Authorization: `Bearer ${token}`,
           ...(config?.headers ?? {}),
@@ -35,13 +36,13 @@ export class MeliHttpClient {
   async post<T>(
     url: string,
     body: unknown,
-    config?: AxiosRequestConfig,
+    config?: MeliRequestConfig,
   ): Promise<T | null> {
     try {
-      const token = await this.getToken.execute();
+      const token = await this.getToken.execute(config?.appKey);
 
       const response = await this.client.post<T>(url, body, {
-        ...config,
+        ...this.toAxiosConfig(config),
         headers: {
           Authorization: `Bearer ${token}`,
           ...(config?.headers ?? {}),
@@ -52,5 +53,14 @@ export class MeliHttpClient {
     } catch (error) {
       return MeliHttpErrorHandler.handle(error);
     }
+  }
+
+  private toAxiosConfig(config?: MeliRequestConfig): AxiosRequestConfig | undefined {
+    if (!config) {
+      return undefined;
+    }
+
+    const { appKey: _appKey, ...axiosConfig } = config;
+    return axiosConfig;
   }
 }

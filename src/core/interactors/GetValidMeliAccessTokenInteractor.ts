@@ -15,24 +15,25 @@ export class GetValidMeliAccessTokenInteractor {
     private readonly authRepository: IMeliAuthRepository,
   ) {}
 
-  async execute(): Promise<string> {
-    const token = await this.tokenRepository.getToken();
+  async execute(appKey = 'default'): Promise<string> {
+    const token = await this.tokenRepository.getToken(appKey);
 
     if (!token) {
       throw new UnauthorizedException(
-        'MercadoLibre token not found. Reauthorize application.',
+        `MercadoLibre token not found for app "${appKey}". Reauthorize application.`,
       );
     }
 
     if (this.isTokenValid(token)) {
-      console.log('[MELI TOKEN] using cached token');
+      console.log(`[MELI TOKEN] using cached token for app "${appKey}"`);
       return token.access_token;
     }
 
-    console.warn('[MELI TOKEN] token expired → refreshing');
+    console.warn(`[MELI TOKEN] token expired for app "${appKey}" → refreshing`);
 
     const refreshed = await this.authRepository.refreshToken(
       token.refresh_token,
+      appKey,
     );
 
     if (
@@ -47,13 +48,14 @@ export class GetValidMeliAccessTokenInteractor {
     }
 
     await this.tokenRepository.updateToken({
+      app_key: appKey,
       access_token: refreshed.access_token,
       refresh_token: refreshed.refresh_token,
       expires_in: refreshed.expires_in,
       expires_at: new Date(Date.now() + refreshed.expires_in * 1000),
-    });
+    }, appKey);
 
-    console.log('[MELI TOKEN] token refreshed and stored');
+    console.log(`[MELI TOKEN] token refreshed and stored for app "${appKey}"`);
 
     return refreshed.access_token;
   }

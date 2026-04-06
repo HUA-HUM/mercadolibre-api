@@ -13,13 +13,15 @@ interface MeliRefreshResponse {
 
 @Injectable()
 export class MeliAuthRepository implements IMeliAuthRepository {
-  async refreshToken(refreshToken: string): Promise<MeliToken> {
+  async refreshToken(refreshToken: string, appKey = 'default'): Promise<MeliToken> {
+    const authConfig = MeliConfig.getAuthConfig(appKey);
+
     const response = await axios.post<MeliRefreshResponse>(
-      MeliConfig.auth.url,
+      authConfig.url,
       {
         grant_type: 'refresh_token',
-        client_id: MeliConfig.auth.clientId,
-        client_secret: MeliConfig.auth.clientSecret,
+        client_id: authConfig.clientId,
+        client_secret: authConfig.clientSecret,
         refresh_token: refreshToken,
       },
       {
@@ -33,6 +35,7 @@ export class MeliAuthRepository implements IMeliAuthRepository {
     const { access_token, refresh_token, expires_in } = response.data;
 
     return {
+      app_key: appKey,
       access_token,
       refresh_token,
       expires_in,
