@@ -4,9 +4,11 @@ import {
   ApiOperation,
   ApiOkResponse,
   ApiParam,
+  ApiResponse,
 } from '@nestjs/swagger';
 import { GetCategoriesTreeService } from 'src/app/services/categories/GetCategoriesTreeService';
 import { Category } from 'src/core/entitis/mercadolibre/categories/Category';
+import { MeliCategoryRaw } from 'src/core/entitis/mercadolibre/categories/MeliCategoryRaw';
 
 @ApiTags('MercadoLibre - Categories')
 @Controller('meli/categories')
@@ -50,5 +52,34 @@ Devuelve la categoría solicitada junto con sus subcategorías directas.
   })
   getCategory(@Param('id') id: string): Promise<Category> {
     return this.service.getCategoryById(id);
+  }
+
+  @Get(':id/raw')
+  @ApiOperation({
+    summary: 'Obtiene la categoría cruda por ID',
+    description:
+      'Devuelve la respuesta original de Mercado Libre para /categories/:id usando el token default.',
+  })
+  @ApiParam({
+    name: 'id',
+    example: 'MLA1055',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Respuesta original de la categoría',
+    type: Object,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Categoría no encontrada',
+  })
+  async getRawCategory(@Param('id') id: string): Promise<MeliCategoryRaw> {
+    const category = await this.service.getRawCategoryById(id);
+
+    if (!category) {
+      throw new Error(`Category ${id} not found`);
+    }
+
+    return category;
   }
 }

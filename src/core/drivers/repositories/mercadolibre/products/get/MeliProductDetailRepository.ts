@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { IMeliHttpClient } from 'src/core/adapters/repositories/mercadolibre/http/IMeliHttpClient';
 import { IMeliProductDetailRepository } from 'src/core/adapters/repositories/mercadolibre/products/get/IMeliProductDetailRepository';
+import { MeliProductDescription } from 'src/core/entitis/mercadolibre/products/get/MeliProductDescription';
 import { MeliProductDetail } from 'src/core/entitis/mercadolibre/products/get/MeliProductDetail';
 
 type MeliItemAttribute = {
@@ -35,7 +36,16 @@ type MeliItemResponse = {
 };
 
 type MeliDescriptionResponse = {
+  text?: string;
   plain_text?: string;
+  last_updated?: string;
+  date_created?: string;
+  snapshot?: {
+    url?: string;
+    width?: number;
+    height?: number;
+    status?: string;
+  };
 };
 
 @Injectable()
@@ -97,5 +107,21 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
       });
       throw error;
     }
+  }
+
+  async getProductDescription(
+    itemId: string,
+  ): Promise<MeliProductDescription | null> {
+    if (!itemId) return null;
+
+    const description = await this.httpClient.get<MeliDescriptionResponse | null>(
+      `/items/${itemId}/description`,
+    );
+
+    if (!description) {
+      return null;
+    }
+
+    return description;
   }
 }

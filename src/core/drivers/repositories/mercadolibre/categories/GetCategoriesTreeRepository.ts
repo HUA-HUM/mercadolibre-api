@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { IMeliHttpClient } from 'src/core/adapters/repositories/mercadolibre/http/IMeliHttpClient';
 import { IGetCategoriesTreeRepository } from 'src/core/adapters/repositories/mercadolibre/categories/IGetCategoriesTreeRepository';
 import { Category } from 'src/core/entitis/mercadolibre/categories/Category';
+import { MeliCategoryRaw } from 'src/core/entitis/mercadolibre/categories/MeliCategoryRaw';
 
 @Injectable()
 export class GetCategoriesTreeRepository implements IGetCategoriesTreeRepository {
@@ -22,19 +23,17 @@ export class GetCategoriesTreeRepository implements IGetCategoriesTreeRepository
   }
 
   async getCategoryById(categoryId: string): Promise<Category> {
-    const category = await this.meliHttpClient.get<any>(
-      `/categories/${categoryId}`,
-    );
+    const category = await this.getRawCategoryById(categoryId);
 
     if (!category) {
       throw new Error(`Category ${categoryId} not found`);
     }
 
     return {
-      id: category.id,
-      name: category.name,
+      id: category.id ?? categoryId,
+      name: category.name ?? '',
       picture: category.picture,
-      permalink: category.permalink,
+      permalink: category.permalink ?? undefined,
       totalItems: category.total_items_in_this_category,
 
       pathFromRoot: category.path_from_root?.map((p: any) => ({
@@ -49,5 +48,11 @@ export class GetCategoriesTreeRepository implements IGetCategoriesTreeRepository
           totalItems: child.total_items_in_this_category,
         })) ?? [],
     };
+  }
+
+  async getRawCategoryById(categoryId: string): Promise<MeliCategoryRaw | null> {
+    return this.meliHttpClient.get<MeliCategoryRaw | null>(
+      `/categories/${categoryId}`,
+    );
   }
 }
