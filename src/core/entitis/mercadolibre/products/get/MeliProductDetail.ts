@@ -8,7 +8,10 @@ export interface MeliProductDetail {
   soldQuantity: number;
   status: string;
   condition: string;
+  buyingMode: string;
+  listingTypeId: string;
   permalink: string;
+  thumbnailId: string;
   thumbnail: string;
   pictures: string[];
   sellerSku?: string;

@@ -23,7 +23,10 @@ type MeliItemResponse = {
   sold_quantity?: number;
   status?: string;
   condition?: string;
+  buying_mode?: string;
+  listing_type_id?: string;
   permalink?: string;
+  thumbnail_id?: string;
   thumbnail?: string;
   pictures?: MeliItemPicture[] | null;
   attributes?: MeliItemAttribute[] | null;
@@ -86,7 +89,10 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
         soldQuantity: item.sold_quantity ?? 0,
         status: item.status ?? '',
         condition: item.condition ?? '',
+        buyingMode: item.buying_mode ?? '',
+        listingTypeId: item.listing_type_id ?? '',
         permalink: item.permalink ?? '',
+        thumbnailId: item.thumbnail_id ?? '',
         thumbnail: item.thumbnail ?? '',
         pictures: pictures
           .map((pic) => pic.secure_url)

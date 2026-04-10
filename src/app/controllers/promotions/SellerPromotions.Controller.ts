@@ -1,12 +1,16 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
   NotFoundException,
   Param,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import {
+  ApiBody,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
@@ -110,6 +114,92 @@ export class SellerPromotionsController {
     if (!response) {
       throw new NotFoundException(
         `Promotion items not found for promotion ${promotionId}`,
+      );
+    }
+
+    return response;
+  }
+
+  @Post('items/:itemId')
+  @ApiOperation({
+    summary: 'Activa una campaña para un item',
+    description:
+      'Proxy fijo del endpoint seller-promotions/items/:itemId usando siempre la app promotions-engine-api, app_version=v2 y protección por API key.',
+  })
+  @ApiParam({
+    name: 'itemId',
+    required: true,
+    example: 'MLA2864401424',
+    description: 'ID del item en Mercado Libre',
+  })
+  @ApiBody({
+    schema: {
+      example: {
+        promotion_id: 'P-MLA17385040',
+        promotion_type: 'SMART',
+        offer_id: 'CANDIDATE-MLA2864401424-71148797613',
+      },
+    },
+  })
+  @ApiOkResponse({
+    description: 'Respuesta original de Mercado Libre al activar la campaña',
+    type: Object,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No se pudo activar la campaña para el item indicado',
+  })
+  async activatePromotionForItem(
+    @Param('itemId') itemId: string,
+    @Body()
+    body: {
+      promotion_id: string;
+      promotion_type: string;
+      offer_id: string;
+    },
+  ) {
+    const response =
+      await this.getSellerPromotionsService.activatePromotionForItem(
+        itemId,
+        body,
+      );
+
+    if (!response) {
+      throw new NotFoundException(
+        `Promotion activation failed for item ${itemId}`,
+      );
+    }
+
+    return response;
+  }
+
+  @Delete('items/:itemId')
+  @ApiOperation({
+    summary: 'Elimina una promoción de un item',
+    description:
+      'Proxy fijo del endpoint seller-promotions/items/:itemId usando siempre la app promotions-engine-api, app_version=v2 y protección por API key.',
+  })
+  @ApiParam({
+    name: 'itemId',
+    required: true,
+    example: 'MLA2696213102',
+    description: 'ID del item en Mercado Libre',
+  })
+  @ApiOkResponse({
+    description: 'Respuesta original de Mercado Libre al eliminar la promoción',
+    type: Object,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No se pudo eliminar la promoción para el item indicado',
+  })
+  async removePromotionForItem(@Param('itemId') itemId: string) {
+    const response =
+      await this.getSellerPromotionsService.removePromotionForItem(itemId);
+
+    if (!response) {
+      throw new NotFoundException(
+        `Promotion removal failed for item ${itemId}`,
       );
     }
 

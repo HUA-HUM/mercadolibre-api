@@ -11,4 +11,5 @@ export interface IMeliHttpClient {
     body: unknown,
     config?: MeliRequestConfig,
   ): Promise<T | null>;
+  delete<T>(path: string, config?: MeliRequestConfig): Promise<T | null>;
 }

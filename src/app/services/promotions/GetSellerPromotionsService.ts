@@ -1,5 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { ISellerPromotionsRepository } from 'src/core/adapters/repositories/mercadolibre/promotions/ISellerPromotionsRepository';
+import type {
+  ActivateSellerPromotionRequest,
+  ISellerPromotionsRepository,
+} from 'src/core/adapters/repositories/mercadolibre/promotions/ISellerPromotionsRepository';
 import { getMeliSellerId } from 'src/core/drivers/repositories/mercadolibre/getSeller/getMeliSellerId';
 
 const PROMOTIONS_APP_KEY = 'promotions-engine-api';
@@ -28,5 +31,16 @@ export class GetSellerPromotionsService {
       limit,
       searchAfter,
     );
+  }
+
+  async activatePromotionForItem(
+    itemId: string,
+    body: ActivateSellerPromotionRequest,
+  ) {
+    return this.sellerPromotionsRepository.activatePromotionForItem(itemId, body);
+  }
+
+  async removePromotionForItem(itemId: string) {
+    return this.sellerPromotionsRepository.removePromotionForItem(itemId);
   }
 }

@@ -55,6 +55,24 @@ export class MeliHttpClient {
     }
   }
 
+  async delete<T>(url: string, config?: MeliRequestConfig): Promise<T | null> {
+    try {
+      const token = await this.getToken.execute(config?.appKey);
+
+      const response = await this.client.delete<T>(url, {
+        ...this.toAxiosConfig(config),
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(config?.headers ?? {}),
+        },
+      });
+
+      return response.data;
+    } catch (error) {
+      return MeliHttpErrorHandler.handle(error);
+    }
+  }
+
   private toAxiosConfig(config?: MeliRequestConfig): AxiosRequestConfig | undefined {
     if (!config) {
       return undefined;

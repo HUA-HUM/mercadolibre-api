@@ -1,7 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { IMeliHttpClient } from 'src/core/adapters/repositories/mercadolibre/http/IMeliHttpClient';
 import {
+  ActivateSellerPromotionRequest,
+  ActivateSellerPromotionResponse,
   ISellerPromotionsRepository,
+  RemoveSellerPromotionResponse,
   SellerPromotionItemsResponse,
   SellerPromotionsUserResponse,
 } from 'src/core/adapters/repositories/mercadolibre/promotions/ISellerPromotionsRepository';
@@ -53,6 +56,41 @@ export class SellerPromotionsRepository implements ISellerPromotionsRepository {
       `/seller-promotions/promotions/${encodeURIComponent(
         promotionId,
       )}/items?${query.toString()}`,
+      {
+        appKey: PROMOTIONS_APP_KEY,
+      },
+    );
+  }
+
+  async activatePromotionForItem(
+    itemId: string,
+    body: ActivateSellerPromotionRequest,
+  ): Promise<ActivateSellerPromotionResponse | null> {
+    const query = new URLSearchParams({
+      app_version: 'v2',
+    });
+
+    return this.meliHttpClient.post<ActivateSellerPromotionResponse>(
+      `/seller-promotions/items/${encodeURIComponent(itemId)}?${query.toString()}`,
+      body,
+      {
+        appKey: PROMOTIONS_APP_KEY,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      },
+    );
+  }
+
+  async removePromotionForItem(
+    itemId: string,
+  ): Promise<RemoveSellerPromotionResponse | null> {
+    const query = new URLSearchParams({
+      app_version: 'v2',
+    });
+
+    return this.meliHttpClient.delete<RemoveSellerPromotionResponse>(
+      `/seller-promotions/items/${encodeURIComponent(itemId)}?${query.toString()}`,
       {
         appKey: PROMOTIONS_APP_KEY,
       },
