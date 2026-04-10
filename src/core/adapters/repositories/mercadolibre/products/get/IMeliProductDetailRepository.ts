@@ -3,5 +3,6 @@ import { MeliProductDescription } from 'src/core/entitis/mercadolibre/products/g
 
 export interface IMeliProductDetailRepository {
   getProductDetail(itemId: string): Promise<MeliProductDetail | null>;
+  getProductsDetail(itemIds: string[]): Promise<MeliProductDetail[]>;
   getProductDescription(itemId: string): Promise<MeliProductDescription | null>;
 }

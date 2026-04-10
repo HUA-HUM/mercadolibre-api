@@ -1,5 +1,5 @@
-import { Controller, Get, Param, NotFoundException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get, Param, NotFoundException, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
 import { GetMeliProductDetailService } from 'src/app/services/products/get/GetMeliProductDetailService';
 import { MeliProductDescription } from 'src/core/entitis/mercadolibre/products/get/MeliProductDescription';
 import { MeliProductDetail } from 'src/core/entitis/mercadolibre/products/get/MeliProductDetail';
@@ -10,6 +10,32 @@ export class GetProductsDetailController {
   constructor(
     private readonly getMeliProductDetail: GetMeliProductDetailService,
   ) {}
+
+  @Get('bulk')
+  @ApiOperation({
+    summary: 'Obtener detalle de múltiples productos',
+    description:
+      'Devuelve el mismo formato del detalle individual para múltiples items usando multiget de Mercado Libre y el token default.',
+  })
+  @ApiQuery({
+    name: 'ids',
+    required: true,
+    example: 'MLA1757293798,MLA1757293732',
+    description: 'Lista de item IDs separados por coma.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Listado de detalles de productos',
+    type: Object,
+  })
+  async getProductsBulk(@Query('ids') ids: string): Promise<MeliProductDetail[]> {
+    const itemIds = ids
+      .split(',')
+      .map((itemId) => itemId.trim())
+      .filter(Boolean);
+
+    return this.getMeliProductDetail.getBulk(itemIds);
+  }
 
   @Get(':itemId')
   @ApiOperation({

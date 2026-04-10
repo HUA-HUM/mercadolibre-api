@@ -25,6 +25,14 @@ export class GetMeliProductDetailService {
     return product;
   }
 
+  async getBulk(itemIds: string[]): Promise<MeliProductDetail[]> {
+    if (!Array.isArray(itemIds) || itemIds.length === 0) {
+      throw new Error('At least one itemId is required');
+    }
+
+    return this.meliProductDetailRepository.getProductsDetail(itemIds);
+  }
+
   async getDescription(itemId: string): Promise<MeliProductDescription | null> {
     if (!itemId) {
       throw new Error('ItemId is required');

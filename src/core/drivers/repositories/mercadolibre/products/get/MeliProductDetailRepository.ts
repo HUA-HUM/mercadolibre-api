@@ -51,6 +51,11 @@ type MeliDescriptionResponse = {
   };
 };
 
+type MeliMultiGetItemResponse = {
+  code?: number;
+  body?: MeliItemResponse;
+};
+
 @Injectable()
 export class MeliProductDetailRepository implements IMeliProductDetailRepository {
   private readonly logger = new Logger(MeliProductDetailRepository.name);
@@ -115,6 +120,46 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
     }
   }
 
+  async getProductsDetail(itemIds: string[]): Promise<MeliProductDetail[]> {
+    const normalizedIds = itemIds
+      .map((itemId) => itemId.trim())
+      .filter((itemId) => itemId.length > 0);
+
+    if (normalizedIds.length === 0) {
+      return [];
+    }
+
+    const multiGetResponse = await this.httpClient.get<MeliMultiGetItemResponse[] | null>(
+      `/items?ids=${encodeURIComponent(normalizedIds.join(','))}`,
+    );
+
+    if (!multiGetResponse || !Array.isArray(multiGetResponse)) {
+      return [];
+    }
+
+    const descriptions = await Promise.all(
+      normalizedIds.map(async (itemId) => [
+        itemId,
+        await this.getProductDescription(itemId),
+      ] as const),
+    );
+
+    const descriptionMap = new Map(descriptions);
+
+    return multiGetResponse
+      .filter(
+        (item): item is MeliMultiGetItemResponse & { body: MeliItemResponse } =>
+          item.code === 200 && !!item.body,
+      )
+      .map((item) =>
+        this.mapItemDetail(
+          item.body,
+          item.body.id ?? '',
+          descriptionMap.get(item.body.id ?? '') ?? null,
+        ),
+      );
+  }
+
   async getProductDescription(
     itemId: string,
   ): Promise<MeliProductDescription | null> {
@@ -129,5 +174,44 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
     }
 
     return description;
+  }
+
+  private mapItemDetail(
+    item: MeliItemResponse,
+    itemId: string,
+    descriptionResponse: MeliDescriptionResponse | null,
+  ): MeliProductDetail {
+    const attributes = Array.isArray(item.attributes) ? item.attributes : [];
+    const pictures = Array.isArray(item.pictures) ? item.pictures : [];
+
+    const sellerSkuAttr = attributes.find((attr) => attr.id === 'SELLER_SKU');
+    const brandAttr = attributes.find((attr) => attr.id === 'BRAND');
+
+    return {
+      id: item.id ?? itemId,
+      categoryId: item.category_id ?? '',
+      title: item.title ?? '',
+      price: item.price ?? 0,
+      currency: item.currency_id ?? '',
+      stock: item.available_quantity ?? 0,
+      soldQuantity: item.sold_quantity ?? 0,
+      status: item.status ?? '',
+      condition: item.condition ?? '',
+      buyingMode: item.buying_mode ?? '',
+      listingTypeId: item.listing_type_id ?? '',
+      permalink: item.permalink ?? '',
+      thumbnailId: item.thumbnail_id ?? '',
+      thumbnail: item.thumbnail ?? '',
+      pictures: pictures
+        .map((pic) => pic.secure_url)
+        .filter((picUrl): picUrl is string => typeof picUrl === 'string'),
+      sellerSku: sellerSkuAttr?.value_name ?? undefined,
+      brand: brandAttr?.value_name ?? undefined,
+      warranty: item.warranty ?? undefined,
+      freeShipping: item.shipping?.free_shipping ?? false,
+      health: item.health ?? 0,
+      lastUpdated: item.last_updated ?? '',
+      description: descriptionResponse?.plain_text ?? undefined,
+    };
   }
 }
