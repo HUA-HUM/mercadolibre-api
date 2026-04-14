@@ -3,6 +3,7 @@ import type { IMeliHttpClient } from 'src/core/adapters/repositories/mercadolibr
 import { IMeliProductDetailRepository } from 'src/core/adapters/repositories/mercadolibre/products/get/IMeliProductDetailRepository';
 import { MeliProductDescription } from 'src/core/entitis/mercadolibre/products/get/MeliProductDescription';
 import { MeliProductDetail } from 'src/core/entitis/mercadolibre/products/get/MeliProductDetail';
+import { MeliListingPrice } from 'src/core/entitis/mercadolibre/products/get/MeliListingPrice';
 
 type MeliItemAttribute = {
   id?: string;
@@ -174,6 +175,58 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
     }
 
     return description;
+  }
+
+  async getListingPrices(
+    itemId: string,
+    params?: {
+      price?: number;
+      categoryId?: string;
+      listingTypeId?: string;
+    },
+  ): Promise<MeliListingPrice[] | null> {
+    if (!itemId) return null;
+
+    let price = params?.price;
+    let categoryId = params?.categoryId;
+    let listingTypeId = params?.listingTypeId;
+
+    if (
+      typeof price !== 'number' ||
+      !categoryId ||
+      !listingTypeId
+    ) {
+      const item = await this.httpClient.get<MeliItemResponse | null>(
+        `/items/${itemId}`,
+      );
+
+      if (!item) {
+        return null;
+      }
+
+      price = price ?? item.price;
+      categoryId = categoryId ?? item.category_id;
+      listingTypeId = listingTypeId ?? item.listing_type_id;
+    }
+
+    if (
+      typeof price !== 'number' ||
+      !Number.isFinite(price) ||
+      !categoryId ||
+      !listingTypeId
+    ) {
+      return null;
+    }
+
+    const query = new URLSearchParams({
+      price: String(price),
+      category_id: categoryId,
+      listing_type_id: listingTypeId,
+    });
+
+    return this.httpClient.get<MeliListingPrice[] | null>(
+      `/sites/MLA/listing_prices?${query.toString()}`,
+    );
   }
 
   private mapItemDetail(

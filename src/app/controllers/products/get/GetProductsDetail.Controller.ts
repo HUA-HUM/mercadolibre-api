@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/
 import { GetMeliProductDetailService } from 'src/app/services/products/get/GetMeliProductDetailService';
 import { MeliProductDescription } from 'src/core/entitis/mercadolibre/products/get/MeliProductDescription';
 import { MeliProductDetail } from 'src/core/entitis/mercadolibre/products/get/MeliProductDetail';
+import { MeliListingPrice } from 'src/core/entitis/mercadolibre/products/get/MeliListingPrice';
 
 @ApiTags('MercadoLibre - Products')
 @Controller('meli/products')
@@ -103,5 +104,67 @@ export class GetProductsDetailController {
     }
 
     return description;
+  }
+
+  @Get(':itemId/commission')
+  @ApiOperation({
+    summary: 'Calcula la comisión del producto por itemId',
+    description:
+      'Consulta listing_prices en Mercado Libre usando el token default. Si enviás price/category_id/listing_type_id, usa esos valores; si no, los resuelve automáticamente desde el item.',
+  })
+  @ApiParam({
+    name: 'itemId',
+    required: true,
+    example: 'MLA1757293798',
+    description: 'ID del item en Mercado Libre',
+  })
+  @ApiQuery({
+    name: 'price',
+    required: false,
+    example: 1019000,
+    description: 'Precio del item. Si no se envía, se toma del item.',
+  })
+  @ApiQuery({
+    name: 'category_id',
+    required: false,
+    example: 'MLA456045',
+    description: 'Categoría del item. Si no se envía, se toma del item.',
+  })
+  @ApiQuery({
+    name: 'listing_type_id',
+    required: false,
+    example: 'gold_special',
+    description:
+      'Tipo de publicación del item. Si no se envía, se toma del item.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Respuesta original de listing_prices',
+    type: Object,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No se pudo calcular la comisión para el producto',
+  })
+  async getProductCommission(
+    @Param('itemId') itemId: string,
+    @Query('price') price?: string,
+    @Query('category_id') categoryId?: string,
+    @Query('listing_type_id') listingTypeId?: string,
+  ): Promise<MeliListingPrice[]> {
+    const listingPrices =
+      await this.getMeliProductDetail.getListingPrices(itemId, {
+        price: price ? Number(price) : undefined,
+        categoryId,
+        listingTypeId,
+      });
+
+    if (!listingPrices) {
+      throw new NotFoundException(
+        `Listing prices for product ${itemId} not found`,
+      );
+    }
+
+    return listingPrices;
   }
 }
