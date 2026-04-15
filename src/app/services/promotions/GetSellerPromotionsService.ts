@@ -2,6 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import type {
   ActivateSellerPromotionRequest,
   ISellerPromotionsRepository,
+  RemoveSellerPromotionItemRequest,
+  RemoveSellerPromotionRequest,
 } from 'src/core/adapters/repositories/mercadolibre/promotions/ISellerPromotionsRepository';
 import { getMeliSellerId } from 'src/core/drivers/repositories/mercadolibre/getSeller/getMeliSellerId';
 
@@ -40,7 +42,23 @@ export class GetSellerPromotionsService {
     return this.sellerPromotionsRepository.activatePromotionForItem(itemId, body);
   }
 
-  async removePromotionForItem(itemId: string) {
-    return this.sellerPromotionsRepository.removePromotionForItem(itemId);
+  async removePromotionForItem(
+    promotionId: string,
+    params: RemoveSellerPromotionRequest,
+  ) {
+    return this.sellerPromotionsRepository.removePromotionForItem(
+      promotionId,
+      params,
+    );
+  }
+
+  async removeItemFromPromotion(
+    itemId: string,
+    params: RemoveSellerPromotionItemRequest,
+  ) {
+    return this.sellerPromotionsRepository.removeItemFromPromotion(
+      itemId,
+      params,
+    );
   }
 }

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -21,6 +22,10 @@ import {
 } from '@nestjs/swagger';
 import { InternalApiKeyGuard } from 'src/app/guards/InternalApiKeyGuard';
 import { GetSellerPromotionsService } from 'src/app/services/promotions/GetSellerPromotionsService';
+import {
+  RemoveSellerPromotionItemRequest,
+  RemoveSellerPromotionRequest,
+} from 'src/core/adapters/repositories/mercadolibre/promotions/ISellerPromotionsRepository';
 
 @ApiTags('MercadoLibre - Promotions')
 @ApiSecurity('x-internal-api-key')
@@ -175,15 +180,98 @@ export class SellerPromotionsController {
 
   @Delete('items/:itemId')
   @ApiOperation({
-    summary: 'Elimina una promoción de un item',
+    summary: 'Saca un item de una campaña',
     description:
       'Proxy fijo del endpoint seller-promotions/items/:itemId usando siempre la app promotions-engine-api, app_version=v2 y protección por API key.',
   })
   @ApiParam({
     name: 'itemId',
     required: true,
-    example: 'MLA2696213102',
+    example: 'MLA1139237317',
     description: 'ID del item en Mercado Libre',
+  })
+  @ApiQuery({
+    name: 'promotion_id',
+    required: true,
+    example: 'P-MLA13691038',
+    description: 'Código de la campaña/promoción de la que querés sacar el item.',
+  })
+  @ApiQuery({
+    name: 'promotion_type',
+    required: true,
+    example: 'PRE_NEGOTIATED',
+    description: 'Tipo de promoción del item a remover.',
+  })
+  @ApiQuery({
+    name: 'offer_id',
+    required: true,
+    example: 'OFFER-MLA1139237317-10059383259',
+    description:
+      'Offer ID activo de la promoción. Para eliminar un item ya activado suele ser el identificador con prefijo OFFER-.',
+  })
+  @ApiOkResponse({
+    description:
+      'Respuesta original de Mercado Libre al sacar el item de la campaña',
+    type: Object,
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Faltan promotion_id, promotion_type u offer_id para identificar la oferta exacta a remover',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No se pudo sacar el item de la promoción indicada',
+  })
+  async removeItemFromPromotion(
+    @Param('itemId') itemId: string,
+    @Query('promotion_id') promotionId?: string,
+    @Query('promotion_type') promotionType?: string,
+    @Query('offer_id') offerId?: string,
+  ) {
+    if (!promotionId || !promotionType || !offerId) {
+      throw new BadRequestException(
+        'promotion_id, promotion_type and offer_id are required to remove a specific active promotion from an item',
+      );
+    }
+
+    const params: RemoveSellerPromotionItemRequest = {
+      promotion_id: promotionId,
+      promotion_type: promotionType,
+      offer_id: offerId,
+    };
+
+    const response = await this.getSellerPromotionsService.removeItemFromPromotion(
+      itemId,
+      params,
+    );
+
+    if (!response) {
+      throw new NotFoundException(
+        `Promotion item removal failed for item ${itemId}`,
+      );
+    }
+
+    return response;
+  }
+
+  @Delete('promotions/:promotionId')
+  @ApiOperation({
+    summary: 'Elimina una promoción',
+    description:
+      'Proxy fijo del endpoint seller-promotions/promotions/:promotionId usando siempre la app promotions-engine-api, app_version=v2 y protección por API key.',
+  })
+  @ApiParam({
+    name: 'promotionId',
+    required: true,
+    example: 'P-MLA17385040',
+    description: 'Código de la promoción a eliminar.',
+  })
+  @ApiQuery({
+    name: 'promotion_type',
+    required: false,
+    example: 'SELLER_CAMPAIGN',
+    description: 'Tipo de promoción. Si no se envía, usa SELLER_CAMPAIGN.',
   })
   @ApiOkResponse({
     description: 'Respuesta original de Mercado Libre al eliminar la promoción',
@@ -191,15 +279,25 @@ export class SellerPromotionsController {
   })
   @ApiResponse({
     status: 404,
-    description: 'No se pudo eliminar la promoción para el item indicado',
+    description: 'No se pudo eliminar la promoción indicada',
   })
-  async removePromotionForItem(@Param('itemId') itemId: string) {
+  async removePromotionForItem(
+    @Param('promotionId') promotionId: string,
+    @Query('promotion_type') promotionType?: string,
+  ) {
+    const params: RemoveSellerPromotionRequest = {
+      promotion_type: promotionType ?? 'SELLER_CAMPAIGN',
+    };
+
     const response =
-      await this.getSellerPromotionsService.removePromotionForItem(itemId);
+      await this.getSellerPromotionsService.removePromotionForItem(
+        promotionId,
+        params,
+      );
 
     if (!response) {
       throw new NotFoundException(
-        `Promotion removal failed for item ${itemId}`,
+        `Promotion removal failed for promotion ${promotionId}`,
       );
     }
 

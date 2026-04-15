@@ -4,6 +4,8 @@ import {
   ActivateSellerPromotionRequest,
   ActivateSellerPromotionResponse,
   ISellerPromotionsRepository,
+  RemoveSellerPromotionItemRequest,
+  RemoveSellerPromotionRequest,
   RemoveSellerPromotionResponse,
   SellerPromotionItemsResponse,
   SellerPromotionsUserResponse,
@@ -83,11 +85,43 @@ export class SellerPromotionsRepository implements ISellerPromotionsRepository {
   }
 
   async removePromotionForItem(
-    itemId: string,
+    promotionId: string,
+    params: RemoveSellerPromotionRequest,
   ): Promise<RemoveSellerPromotionResponse | null> {
     const query = new URLSearchParams({
       app_version: 'v2',
     });
+
+    if (params.promotion_type) {
+      query.set('promotion_type', params.promotion_type);
+    }
+
+    return this.meliHttpClient.delete<RemoveSellerPromotionResponse>(
+      `/seller-promotions/promotions/${encodeURIComponent(
+        promotionId,
+      )}?${query.toString()}`,
+      {
+        appKey: PROMOTIONS_APP_KEY,
+      },
+    );
+  }
+
+  async removeItemFromPromotion(
+    itemId: string,
+    params: RemoveSellerPromotionItemRequest,
+  ): Promise<RemoveSellerPromotionResponse | null> {
+    const query = new URLSearchParams({
+      app_version: 'v2',
+      promotion_id: params.promotion_id,
+    });
+
+    if (params.promotion_type) {
+      query.set('promotion_type', params.promotion_type);
+    }
+
+    if (params.offer_id) {
+      query.set('offer_id', params.offer_id);
+    }
 
     return this.meliHttpClient.delete<RemoveSellerPromotionResponse>(
       `/seller-promotions/items/${encodeURIComponent(itemId)}?${query.toString()}`,
