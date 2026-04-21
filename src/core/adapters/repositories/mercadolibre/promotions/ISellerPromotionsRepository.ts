@@ -1,3 +1,5 @@
+import { MeliDeleteResponse } from 'src/core/adapters/repositories/mercadolibre/http/IMeliHttpClient';
+
 export interface SellerPromotionsUserResponse {
   user_id?: string | number;
   results?: unknown[];
@@ -22,6 +24,17 @@ export interface ActivateSellerPromotionResponse {
 export interface RemoveSellerPromotionResponse {
   [key: string]: unknown;
 }
+
+export interface RemoveSellerPromotionFailure {
+  status: number;
+  path: string;
+  data: unknown;
+  message?: string;
+}
+
+export type RemoveSellerPromotionResult =
+  | RemoveSellerPromotionResponse
+  | RemoveSellerPromotionFailure;
 
 export interface RemoveSellerPromotionRequest {
   promotion_type?: string;
@@ -48,9 +61,9 @@ export interface ISellerPromotionsRepository {
   removePromotionForItem(
     promotionId: string,
     params: RemoveSellerPromotionRequest,
-  ): Promise<RemoveSellerPromotionResponse | null>;
+  ): Promise<RemoveSellerPromotionResult | null>;
   removeItemFromPromotion(
     itemId: string,
     params: RemoveSellerPromotionItemRequest,
-  ): Promise<RemoveSellerPromotionResponse | null>;
+  ): Promise<MeliDeleteResponse<Record<string, unknown>> | null>;
 }

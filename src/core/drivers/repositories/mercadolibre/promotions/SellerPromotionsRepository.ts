@@ -6,7 +6,7 @@ import {
   ISellerPromotionsRepository,
   RemoveSellerPromotionItemRequest,
   RemoveSellerPromotionRequest,
-  RemoveSellerPromotionResponse,
+  RemoveSellerPromotionResult,
   SellerPromotionItemsResponse,
   SellerPromotionsUserResponse,
 } from 'src/core/adapters/repositories/mercadolibre/promotions/ISellerPromotionsRepository';
@@ -87,7 +87,7 @@ export class SellerPromotionsRepository implements ISellerPromotionsRepository {
   async removePromotionForItem(
     promotionId: string,
     params: RemoveSellerPromotionRequest,
-  ): Promise<RemoveSellerPromotionResponse | null> {
+  ): Promise<RemoveSellerPromotionResult | null> {
     const query = new URLSearchParams({
       app_version: 'v2',
     });
@@ -96,20 +96,34 @@ export class SellerPromotionsRepository implements ISellerPromotionsRepository {
       query.set('promotion_type', params.promotion_type);
     }
 
-    return this.meliHttpClient.delete<RemoveSellerPromotionResponse>(
-      `/seller-promotions/promotions/${encodeURIComponent(
-        promotionId,
-      )}?${query.toString()}`,
+    const path = `/seller-promotions/promotions/${encodeURIComponent(
+      promotionId,
+    )}?${query.toString()}`;
+
+    const response = await this.meliHttpClient.deleteWithMeta<Record<string, unknown>>(
+      path,
       {
         appKey: PROMOTIONS_APP_KEY,
       },
     );
+
+    if (!response) return null;
+
+    if (response.status >= 200 && response.status < 300) {
+      return response.data ?? { status: 'ok' };
+    }
+
+    return {
+      status: response.status,
+      path,
+      data: response.data,
+    };
   }
 
   async removeItemFromPromotion(
     itemId: string,
     params: RemoveSellerPromotionItemRequest,
-  ): Promise<RemoveSellerPromotionResponse | null> {
+  ) {
     const query = new URLSearchParams({
       app_version: 'v2',
       promotion_id: params.promotion_id,
@@ -123,11 +137,29 @@ export class SellerPromotionsRepository implements ISellerPromotionsRepository {
       query.set('offer_id', params.offer_id);
     }
 
-    return this.meliHttpClient.delete<RemoveSellerPromotionResponse>(
-      `/seller-promotions/items/${encodeURIComponent(itemId)}?${query.toString()}`,
+    const path = `/seller-promotions/items/${encodeURIComponent(itemId)}?${query.toString()}`;
+
+    console.log('[MELI PROMOTIONS REMOVE ITEM] request', {
+      appKey: PROMOTIONS_APP_KEY,
+      itemId,
+      params,
+      path,
+    });
+
+    const response = await this.meliHttpClient.deleteWithMeta<Record<string, unknown>>(
+      path,
       {
         appKey: PROMOTIONS_APP_KEY,
       },
     );
+
+    console.log('[MELI PROMOTIONS REMOVE ITEM] response', {
+      itemId,
+      path,
+      status: response?.status,
+      data: response?.data,
+    });
+
+    return response;
   }
 }

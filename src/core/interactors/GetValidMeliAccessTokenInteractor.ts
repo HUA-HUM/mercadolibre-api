@@ -3,6 +3,9 @@ import type { IMadreMeliTokenRepository } from 'src/core/adapters/repositories/m
 import type { IMeliAuthRepository } from 'src/core/adapters/repositories/mercadolibre/auth/IMeliAuthRepository';
 import { MeliToken } from 'src/core/entitis/madre/mercadolibre/token/MeliToken';
 
+const maskToken = (token: string): string =>
+  `${token.slice(0, 18)}...${token.slice(-14)}`;
+
 @Injectable()
 export class GetValidMeliAccessTokenInteractor {
   private readonly refreshThresholdSeconds = 300;
@@ -25,7 +28,10 @@ export class GetValidMeliAccessTokenInteractor {
     }
 
     if (this.isTokenValid(token)) {
-      console.log(`[MELI TOKEN] using cached token for app "${appKey}"`);
+      console.log(`[MELI TOKEN] using cached token for app "${appKey}"`, {
+        token: maskToken(token.access_token),
+        expires_at: token.expires_at,
+      });
       return token.access_token;
     }
 
@@ -55,7 +61,10 @@ export class GetValidMeliAccessTokenInteractor {
       expires_at: new Date(Date.now() + refreshed.expires_in * 1000),
     }, appKey);
 
-    console.log(`[MELI TOKEN] token refreshed and stored for app "${appKey}"`);
+    console.log(`[MELI TOKEN] token refreshed and stored for app "${appKey}"`, {
+      token: maskToken(refreshed.access_token),
+      expires_at: refreshed.expires_at,
+    });
 
     return refreshed.access_token;
   }

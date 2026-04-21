@@ -1,4 +1,5 @@
 import {
+  BadGatewayException,
   BadRequestException,
   Body,
   Controller,
@@ -8,8 +9,10 @@ import {
   Param,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ApiBody,
   ApiOkResponse,
@@ -23,9 +26,19 @@ import {
 import { InternalApiKeyGuard } from 'src/app/guards/InternalApiKeyGuard';
 import { GetSellerPromotionsService } from 'src/app/services/promotions/GetSellerPromotionsService';
 import {
+  RemoveSellerPromotionFailure,
   RemoveSellerPromotionItemRequest,
   RemoveSellerPromotionRequest,
 } from 'src/core/adapters/repositories/mercadolibre/promotions/ISellerPromotionsRepository';
+
+const isRemoveFailure = (
+  response: unknown,
+): response is RemoveSellerPromotionFailure =>
+  typeof response === 'object' &&
+  response !== null &&
+  'status' in response &&
+  'path' in response &&
+  'data' in response;
 
 @ApiTags('MercadoLibre - Promotions')
 @ApiSecurity('x-internal-api-key')
@@ -228,6 +241,7 @@ export class SellerPromotionsController {
     @Query('promotion_id') promotionId?: string,
     @Query('promotion_type') promotionType?: string,
     @Query('offer_id') offerId?: string,
+    @Res({ passthrough: true }) res?: Response,
   ) {
     if (!promotionId || !promotionType || !offerId) {
       throw new BadRequestException(
@@ -247,12 +261,13 @@ export class SellerPromotionsController {
     );
 
     if (!response) {
-      throw new NotFoundException(
-        `Promotion item removal failed for item ${itemId}`,
-      );
+      throw new BadGatewayException({
+        message: `No response captured from Mercado Libre while removing promotion item ${itemId}`,
+      });
     }
 
-    return response;
+    res?.status(response.status);
+    return response.data ?? undefined;
   }
 
   @Delete('promotions/:promotionId')
@@ -299,6 +314,13 @@ export class SellerPromotionsController {
       throw new NotFoundException(
         `Promotion removal failed for promotion ${promotionId}`,
       );
+    }
+
+    if (isRemoveFailure(response)) {
+      throw new BadGatewayException({
+        message: `Mercado Libre rejected promotion removal for promotion ${promotionId}`,
+        upstream: response,
+      });
     }
 
     return response;
