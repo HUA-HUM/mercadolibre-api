@@ -23,13 +23,18 @@ export class GetSellerPromotionsService {
 
   async getPromotionItems(
     promotionId: string,
-    promotionType = 'DEAL',
+    promotionType?: string,
     limit?: number,
     searchAfter?: string,
   ) {
-    return this.sellerPromotionsRepository.getPromotionItems(
+    const resolvedPromotionType = await this.resolvePromotionType(
       promotionId,
       promotionType,
+    );
+
+    return this.sellerPromotionsRepository.getPromotionItems(
+      promotionId,
+      resolvedPromotionType,
       limit,
       searchAfter,
     );
@@ -60,5 +65,46 @@ export class GetSellerPromotionsService {
       itemId,
       params,
     );
+  }
+
+  private async resolvePromotionType(
+    promotionId: string,
+    requestedPromotionType?: string,
+  ): Promise<string> {
+    const promotions =
+      await this.sellerPromotionsRepository.getUserPromotions(
+        getMeliSellerId(PROMOTIONS_APP_KEY),
+      );
+
+    const results = Array.isArray(promotions?.results) ? promotions.results : [];
+    const matchedPromotion = results.find((promotion) => {
+      if (!promotion || typeof promotion !== 'object') {
+        return false;
+      }
+
+      return 'id' in promotion && promotion.id === promotionId;
+    });
+
+    const resolvedPromotionType =
+      matchedPromotion &&
+      typeof matchedPromotion === 'object' &&
+      'type' in matchedPromotion &&
+      typeof matchedPromotion.type === 'string'
+        ? matchedPromotion.type
+        : undefined;
+
+    if (
+      requestedPromotionType &&
+      resolvedPromotionType &&
+      requestedPromotionType !== resolvedPromotionType
+    ) {
+      console.warn('[MELI PROMOTIONS] promotion_type mismatch, using resolved type', {
+        promotionId,
+        requestedPromotionType,
+        resolvedPromotionType,
+      });
+    }
+
+    return resolvedPromotionType ?? requestedPromotionType ?? 'DEAL';
   }
 }

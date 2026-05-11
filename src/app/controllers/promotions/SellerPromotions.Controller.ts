@@ -92,7 +92,8 @@ export class SellerPromotionsController {
     name: 'promotion_type',
     required: false,
     example: 'DEAL',
-    description: 'Tipo de promoción. Si no se envía, usa DEAL.',
+    description:
+      'Tipo de promoción. Si no se envía, se resuelve automáticamente por promotionId. Si se envía pero no coincide con la promoción, se usa el tipo real resuelto.',
   })
   @ApiQuery({
     name: 'limit',
@@ -118,7 +119,7 @@ export class SellerPromotionsController {
   })
   async getPromotionItems(
     @Param('promotionId') promotionId: string,
-    @Query('promotion_type') promotionType = 'DEAL',
+    @Query('promotion_type') promotionType?: string,
     @Query('limit') limit?: string,
     @Query('searchAfter') searchAfter?: string,
   ) {
