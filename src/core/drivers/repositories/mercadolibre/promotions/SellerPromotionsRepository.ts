@@ -54,10 +54,21 @@ export class SellerPromotionsRepository implements ISellerPromotionsRepository {
       query.set('searchAfter', searchAfter);
     }
 
+    const path = `/seller-promotions/promotions/${encodeURIComponent(
+      promotionId,
+    )}/items?${query.toString()}`;
+
+    console.log('[MELI PROMOTIONS GET ITEMS] request', {
+      appKey: PROMOTIONS_APP_KEY,
+      promotionId,
+      promotionType,
+      limit,
+      searchAfter,
+      path,
+    });
+
     return this.meliHttpClient.get<SellerPromotionItemsResponse>(
-      `/seller-promotions/promotions/${encodeURIComponent(
-        promotionId,
-      )}/items?${query.toString()}`,
+      path,
       {
         appKey: PROMOTIONS_APP_KEY,
       },

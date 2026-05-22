@@ -71,40 +71,44 @@ export class GetSellerPromotionsService {
     promotionId: string,
     requestedPromotionType?: string,
   ): Promise<string> {
-    const promotions =
-      await this.sellerPromotionsRepository.getUserPromotions(
-        getMeliSellerId(PROMOTIONS_APP_KEY),
-      );
-
-    const results = Array.isArray(promotions?.results) ? promotions.results : [];
-    const matchedPromotion = results.find((promotion) => {
-      if (!promotion || typeof promotion !== 'object') {
-        return false;
-      }
-
-      return 'id' in promotion && promotion.id === promotionId;
-    });
-
-    const resolvedPromotionType =
-      matchedPromotion &&
-      typeof matchedPromotion === 'object' &&
-      'type' in matchedPromotion &&
-      typeof matchedPromotion.type === 'string'
-        ? matchedPromotion.type
-        : undefined;
-
-    if (
-      requestedPromotionType &&
-      resolvedPromotionType &&
-      requestedPromotionType !== resolvedPromotionType
-    ) {
-      console.warn('[MELI PROMOTIONS] promotion_type mismatch, using resolved type', {
-        promotionId,
-        requestedPromotionType,
-        resolvedPromotionType,
-      });
+    if (requestedPromotionType) {
+      return requestedPromotionType;
     }
 
-    return resolvedPromotionType ?? requestedPromotionType ?? 'DEAL';
+    try {
+      const promotions =
+        await this.sellerPromotionsRepository.getUserPromotions(
+          getMeliSellerId(PROMOTIONS_APP_KEY),
+        );
+
+      const results = Array.isArray(promotions?.results) ? promotions.results : [];
+      const matchedPromotion = results.find((promotion) => {
+        if (!promotion || typeof promotion !== 'object') {
+          return false;
+        }
+
+        return 'id' in promotion && promotion.id === promotionId;
+      });
+
+      const resolvedPromotionType =
+        matchedPromotion &&
+        typeof matchedPromotion === 'object' &&
+        'type' in matchedPromotion &&
+        typeof matchedPromotion.type === 'string'
+          ? matchedPromotion.type
+          : undefined;
+
+      return resolvedPromotionType ?? 'DEAL';
+    } catch (error) {
+      console.warn(
+        '[MELI PROMOTIONS] could not resolve promotion_type, falling back to DEAL',
+        {
+          promotionId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+
+      return 'DEAL';
+    }
   }
 }
