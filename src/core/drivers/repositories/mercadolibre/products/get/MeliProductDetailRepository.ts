@@ -69,14 +69,14 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
   async getProductDetail(itemId: string): Promise<MeliProductDetail | null> {
     if (!itemId) return null;
 
-    const item = await this.httpClient.get<MeliItemResponse | null>(
-      `/items/${itemId}`,
-    );
-    if (!item) return null;
+    const [item, descriptionResponse] = await Promise.all([
+      this.httpClient.get<MeliItemResponse | null>(`/items/${itemId}`),
+      this.httpClient
+        .get<MeliDescriptionResponse | null>(`/items/${itemId}/description`)
+        .catch(() => null),
+    ]);
 
-    const descriptionResponse = await this.httpClient
-      .get<MeliDescriptionResponse | null>(`/items/${itemId}/description`)
-      .catch(() => null);
+    if (!item) return null;
 
     const attributes = Array.isArray(item.attributes) ? item.attributes : [];
     const pictures = Array.isArray(item.pictures) ? item.pictures : [];
