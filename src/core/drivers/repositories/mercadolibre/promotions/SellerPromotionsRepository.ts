@@ -12,6 +12,11 @@ import {
 } from 'src/core/adapters/repositories/mercadolibre/promotions/ISellerPromotionsRepository';
 
 const PROMOTIONS_APP_KEY = 'promotions-engine-api';
+const GET_PROMOTION_ITEMS_MAX_ATTEMPTS = 2;
+const GET_PROMOTION_ITEMS_RETRY_DELAY_MS = 300;
+
+const sleep = async (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
 @Injectable()
 export class SellerPromotionsRepository implements ISellerPromotionsRepository {
@@ -67,12 +72,48 @@ export class SellerPromotionsRepository implements ISellerPromotionsRepository {
       path,
     });
 
-    return this.meliHttpClient.get<SellerPromotionItemsResponse>(
-      path,
-      {
-        appKey: PROMOTIONS_APP_KEY,
-      },
-    );
+    for (let attempt = 1; attempt <= GET_PROMOTION_ITEMS_MAX_ATTEMPTS; attempt++) {
+      try {
+        const response = await this.meliHttpClient.get<SellerPromotionItemsResponse>(
+          path,
+          {
+            appKey: PROMOTIONS_APP_KEY,
+          },
+        );
+
+        if (attempt > 1) {
+          console.log('[MELI PROMOTIONS GET ITEMS] recovered after retry', {
+            promotionId,
+            promotionType,
+            limit,
+            searchAfter,
+            attempt,
+          });
+        }
+
+        return response;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        console.warn('[MELI PROMOTIONS GET ITEMS] attempt failed', {
+          promotionId,
+          promotionType,
+          limit,
+          searchAfter,
+          attempt,
+          maxAttempts: GET_PROMOTION_ITEMS_MAX_ATTEMPTS,
+          message,
+        });
+
+        if (attempt === GET_PROMOTION_ITEMS_MAX_ATTEMPTS) {
+          throw error;
+        }
+
+        await sleep(GET_PROMOTION_ITEMS_RETRY_DELAY_MS);
+      }
+    }
+
+    return null;
   }
 
   async activatePromotionForItem(
