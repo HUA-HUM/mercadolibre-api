@@ -218,10 +218,10 @@ export class SellerPromotionsController {
   })
   @ApiQuery({
     name: 'offer_id',
-    required: true,
+    required: false,
     example: 'OFFER-MLA1139237317-10059383259',
     description:
-      'Offer ID activo de la promoción. Para eliminar un item ya activado suele ser el identificador con prefijo OFFER-.',
+      'Offer ID activo de la promoción. Es obligatorio para tipos distintos de DEAL; para DEAL no se requiere.',
   })
   @ApiOkResponse({
     description:
@@ -231,7 +231,7 @@ export class SellerPromotionsController {
   @ApiResponse({
     status: 400,
     description:
-      'Faltan promotion_id, promotion_type u offer_id para identificar la oferta exacta a remover',
+      'Faltan promotion_id o promotion_type, o falta offer_id para tipos distintos de DEAL',
   })
   @ApiResponse({
     status: 404,
@@ -244,7 +244,15 @@ export class SellerPromotionsController {
     @Query('offer_id') offerId?: string,
     @Res({ passthrough: true }) res?: Response,
   ) {
-    if (!promotionId || !promotionType || !offerId) {
+    if (!promotionId || !promotionType) {
+      throw new BadRequestException(
+        'promotion_id and promotion_type are required',
+      );
+    }
+
+    const isDeal = promotionType === 'DEAL';
+
+    if (!isDeal && !offerId) {
       throw new BadRequestException(
         'promotion_id, promotion_type and offer_id are required to remove a specific active promotion from an item',
       );
@@ -253,7 +261,7 @@ export class SellerPromotionsController {
     const params: RemoveSellerPromotionItemRequest = {
       promotion_id: promotionId,
       promotion_type: promotionType,
-      offer_id: offerId,
+      offer_id: isDeal ? undefined : offerId,
     };
 
     const response = await this.getSellerPromotionsService.removeItemFromPromotion(
