@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   IGetOrdersRepository,
+  GetOrdersByProductParams,
   GetOrdersParams,
   OrdersPage,
 } from 'src/core/adapters/repositories/mercadolibre/orders/IGetOrdersRepository';
@@ -18,14 +19,61 @@ export class GetOrdersRepository implements IGetOrdersRepository {
   async getOrders(params: GetOrdersParams): Promise<OrdersPage> {
     const sellerId = getMeliSellerId();
 
-    const query =
-      `/orders/search?seller=${sellerId}` +
-      `&order.status=${params.status ?? 'paid'}` +
-      `&limit=${params.limit}` +
-      `&offset=${params.offset}`;
+    const query = this.buildOrdersSearchQuery({
+      sellerId,
+      status: params.status,
+      limit: params.limit,
+      offset: params.offset,
+    });
 
     const response = await this.meliHttpClient.get<any>(query);
 
+    return this.mapOrdersPage(response, params);
+  }
+
+  async getOrdersByProduct(
+    params: GetOrdersByProductParams,
+  ): Promise<OrdersPage> {
+    const sellerId = getMeliSellerId();
+
+    const query = this.buildOrdersSearchQuery({
+      sellerId,
+      status: params.status,
+      limit: params.limit,
+      offset: params.offset,
+      q: params.itemId,
+    });
+
+    const response = await this.meliHttpClient.get<any>(query);
+
+    return this.mapOrdersPage(response, params);
+  }
+
+  private buildOrdersSearchQuery(params: {
+    sellerId: string;
+    status?: string;
+    limit: number;
+    offset: number;
+    q?: string;
+  }): string {
+    const query = new URLSearchParams({
+      seller: params.sellerId,
+      'order.status': params.status ?? 'paid',
+      limit: String(params.limit),
+      offset: String(params.offset),
+    });
+
+    if (params.q) {
+      query.set('q', params.q);
+    }
+
+    return `/orders/search?${query.toString()}`;
+  }
+
+  private mapOrdersPage(
+    response: any,
+    params: Pick<GetOrdersParams, 'limit' | 'offset'>,
+  ): OrdersPage {
     return {
       results: (response.results ?? []).map(MeliOrderMapper.toEntity),
       paging: {

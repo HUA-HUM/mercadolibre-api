@@ -8,21 +8,29 @@ import { MeliListingPrice } from 'src/core/entitis/mercadolibre/products/get/Mel
 type MeliItemAttribute = {
   id?: string;
   value_name?: string;
+  [key: string]: unknown;
 };
 
 type MeliItemPicture = {
+  url?: string;
   secure_url?: string;
+  [key: string]: unknown;
 };
 
 type MeliItemResponse = {
   id?: string;
+  site_id?: string;
   category_id?: string;
   title?: string;
   price?: number;
+  base_price?: number;
+  original_price?: number;
   currency_id?: string;
+  initial_quantity?: number;
   available_quantity?: number;
   sold_quantity?: number;
   status?: string;
+  sub_status?: unknown[] | null;
   condition?: string;
   buying_mode?: string;
   listing_type_id?: string;
@@ -31,12 +39,40 @@ type MeliItemResponse = {
   thumbnail?: string;
   pictures?: MeliItemPicture[] | null;
   attributes?: MeliItemAttribute[] | null;
+  variations?: unknown[] | null;
+  sale_terms?: unknown[] | null;
   warranty?: string;
   shipping?: {
     free_shipping?: boolean;
+    [key: string]: unknown;
   } | null;
   health?: number;
+  seller_id?: number;
+  user_product_id?: string;
+  family_name?: string;
+  family_id?: string;
+  official_store_id?: number;
+  inventory_id?: string;
+  start_time?: string;
+  stop_time?: string;
+  end_time?: string;
+  expiration_time?: string;
+  date_created?: string;
   last_updated?: string;
+  video_id?: string;
+  accepts_mercadopago?: boolean;
+  international_delivery_mode?: string;
+  tags?: string[] | null;
+  catalog_product_id?: string;
+  domain_id?: string;
+  seller_custom_field?: string;
+  parent_item_id?: string;
+  automatic_relist?: boolean;
+  catalog_listing?: boolean;
+  channels?: string[] | null;
+  warnings?: unknown[] | null;
+  item_relations?: unknown[] | null;
+  deal_ids?: string[] | null;
 };
 
 type MeliDescriptionResponse = {
@@ -78,39 +114,8 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
 
     if (!item) return null;
 
-    const attributes = Array.isArray(item.attributes) ? item.attributes : [];
-    const pictures = Array.isArray(item.pictures) ? item.pictures : [];
-
-    const sellerSkuAttr = attributes.find((attr) => attr.id === 'SELLER_SKU');
-    const brandAttr = attributes.find((attr) => attr.id === 'BRAND');
-
     try {
-      return {
-        id: item.id ?? itemId,
-        categoryId: item.category_id ?? '',
-        title: item.title ?? '',
-        price: item.price ?? 0,
-        currency: item.currency_id ?? '',
-        stock: item.available_quantity ?? 0,
-        soldQuantity: item.sold_quantity ?? 0,
-        status: item.status ?? '',
-        condition: item.condition ?? '',
-        buyingMode: item.buying_mode ?? '',
-        listingTypeId: item.listing_type_id ?? '',
-        permalink: item.permalink ?? '',
-        thumbnailId: item.thumbnail_id ?? '',
-        thumbnail: item.thumbnail ?? '',
-        pictures: pictures
-          .map((pic) => pic.secure_url)
-          .filter((picUrl): picUrl is string => typeof picUrl === 'string'),
-        sellerSku: sellerSkuAttr?.value_name ?? undefined,
-        brand: brandAttr?.value_name ?? undefined,
-        warranty: item.warranty ?? undefined,
-        freeShipping: item.shipping?.free_shipping ?? false,
-        health: item.health ?? 0,
-        lastUpdated: item.last_updated ?? '',
-        description: descriptionResponse?.plain_text ?? undefined,
-      };
+      return this.mapItemDetail(item, itemId, descriptionResponse);
     } catch (error) {
       this.logger.error(`Failed to map Mercado Libre product detail`, {
         itemId,
@@ -130,19 +135,22 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
       return [];
     }
 
-    const multiGetResponse = await this.httpClient.get<MeliMultiGetItemResponse[] | null>(
-      `/items?ids=${encodeURIComponent(normalizedIds.join(','))}`,
-    );
+    const multiGetResponse = await this.httpClient.get<
+      MeliMultiGetItemResponse[] | null
+    >(`/items?ids=${encodeURIComponent(normalizedIds.join(','))}`);
 
     if (!multiGetResponse || !Array.isArray(multiGetResponse)) {
       return [];
     }
 
     const descriptions = await Promise.all(
-      normalizedIds.map(async (itemId) => [
-        itemId,
-        await this.getProductDescription(itemId),
-      ] as const),
+      normalizedIds.map(
+        async (itemId) =>
+          [
+            itemId,
+            await this.getProductDescription(itemId).catch(() => null),
+          ] as const,
+      ),
     );
 
     const descriptionMap = new Map(descriptions);
@@ -166,9 +174,10 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
   ): Promise<MeliProductDescription | null> {
     if (!itemId) return null;
 
-    const description = await this.httpClient.get<MeliDescriptionResponse | null>(
-      `/items/${itemId}/description`,
-    );
+    const description =
+      await this.httpClient.get<MeliDescriptionResponse | null>(
+        `/items/${itemId}/description`,
+      );
 
     if (!description) {
       return null;
@@ -191,11 +200,7 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
     let categoryId = params?.categoryId;
     let listingTypeId = params?.listingTypeId;
 
-    if (
-      typeof price !== 'number' ||
-      !categoryId ||
-      !listingTypeId
-    ) {
+    if (typeof price !== 'number' || !categoryId || !listingTypeId) {
       const item = await this.httpClient.get<MeliItemResponse | null>(
         `/items/${itemId}`,
       );
@@ -256,7 +261,7 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
       thumbnailId: item.thumbnail_id ?? '',
       thumbnail: item.thumbnail ?? '',
       pictures: pictures
-        .map((pic) => pic.secure_url)
+        .map((pic) => pic.secure_url ?? pic.url)
         .filter((picUrl): picUrl is string => typeof picUrl === 'string'),
       sellerSku: sellerSkuAttr?.value_name ?? undefined,
       brand: brandAttr?.value_name ?? undefined,
@@ -265,6 +270,44 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
       health: item.health ?? 0,
       lastUpdated: item.last_updated ?? '',
       description: descriptionResponse?.plain_text ?? undefined,
+      site_id: item.site_id ?? null,
+      family_name: item.family_name ?? null,
+      family_id: item.family_id ?? null,
+      seller_id: item.seller_id ?? null,
+      user_product_id: item.user_product_id ?? null,
+      official_store_id: item.official_store_id ?? null,
+      base_price: item.base_price ?? null,
+      original_price: item.original_price ?? null,
+      inventory_id: item.inventory_id ?? null,
+      initial_quantity: item.initial_quantity ?? null,
+      available_quantity: item.available_quantity ?? null,
+      sale_terms: Array.isArray(item.sale_terms) ? item.sale_terms : [],
+      start_time: item.start_time ?? null,
+      stop_time: item.stop_time ?? null,
+      end_time: item.end_time ?? null,
+      expiration_time: item.expiration_time ?? null,
+      date_created: item.date_created ?? null,
+      last_updated: item.last_updated ?? null,
+      video_id: item.video_id ?? null,
+      accepts_mercadopago: item.accepts_mercadopago ?? null,
+      shipping: item.shipping ?? null,
+      international_delivery_mode: item.international_delivery_mode ?? null,
+      attributes,
+      variations: Array.isArray(item.variations) ? item.variations : [],
+      sub_status: Array.isArray(item.sub_status) ? item.sub_status : [],
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      catalog_product_id: item.catalog_product_id ?? null,
+      domain_id: item.domain_id ?? null,
+      seller_custom_field: item.seller_custom_field ?? null,
+      parent_item_id: item.parent_item_id ?? null,
+      automatic_relist: item.automatic_relist ?? null,
+      catalog_listing: item.catalog_listing ?? null,
+      channels: Array.isArray(item.channels) ? item.channels : [],
+      warnings: Array.isArray(item.warnings) ? item.warnings : [],
+      item_relations: Array.isArray(item.item_relations)
+        ? item.item_relations
+        : [],
+      deal_ids: Array.isArray(item.deal_ids) ? item.deal_ids : [],
     };
   }
 }
