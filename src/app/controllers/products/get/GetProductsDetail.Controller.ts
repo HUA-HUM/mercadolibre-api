@@ -1,5 +1,21 @@
-import { Controller, Get, Param, NotFoundException, Query } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiParam, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import {
+  Controller,
+  Delete,
+  Get,
+  Param,
+  NotFoundException,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiResponse,
+  ApiSecurity,
+} from '@nestjs/swagger';
+import { InternalApiKeyGuard } from 'src/app/guards/InternalApiKeyGuard';
 import { GetMeliProductDetailService } from 'src/app/services/products/get/GetMeliProductDetailService';
 import { MeliProductDescription } from 'src/core/entitis/mercadolibre/products/get/MeliProductDescription';
 import { MeliProductDetail } from 'src/core/entitis/mercadolibre/products/get/MeliProductDetail';
@@ -11,6 +27,52 @@ export class GetProductsDetailController {
   constructor(
     private readonly getMeliProductDetail: GetMeliProductDetailService,
   ) {}
+
+  @Delete(':itemId')
+  @UseGuards(InternalApiKeyGuard)
+  @ApiSecurity('x-internal-api-key')
+  @ApiOperation({
+    summary: 'Elimina definitivamente una publicación',
+    description:
+      'Cierra la publicación y luego la marca como eliminada en Mercado Libre. Esta operación es irreversible y requiere la API key interna.',
+  })
+  @ApiParam({
+    name: 'itemId',
+    required: true,
+    example: 'MLA1757293798',
+    description: 'ID de la publicación de Mercado Libre que se eliminará.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Publicación eliminada o previamente eliminada.',
+    schema: {
+      example: {
+        id: 'MLA1757293798',
+        deleted: true,
+        alreadyDeleted: false,
+        closePerformed: true,
+        status: 'closed',
+        subStatus: ['deleted'],
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'API key interna ausente o inválida.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Publicación no encontrada.',
+  })
+  async deleteProduct(@Param('itemId') itemId: string) {
+    const result = await this.getMeliProductDetail.deleteProduct(itemId);
+
+    if (!result) {
+      throw new NotFoundException(`Product with id ${itemId} not found`);
+    }
+
+    return result;
+  }
 
   @Get('bulk')
   @ApiOperation({
@@ -29,7 +91,9 @@ export class GetProductsDetailController {
     description: 'Listado de detalles de productos',
     type: Object,
   })
-  async getProductsBulk(@Query('ids') ids: string): Promise<MeliProductDetail[]> {
+  async getProductsBulk(
+    @Query('ids') ids: string,
+  ): Promise<MeliProductDetail[]> {
     const itemIds = ids
       .split(',')
       .map((itemId) => itemId.trim())
@@ -152,12 +216,14 @@ export class GetProductsDetailController {
     @Query('category_id') categoryId?: string,
     @Query('listing_type_id') listingTypeId?: string,
   ): Promise<MeliListingPrice[]> {
-    const listingPrices =
-      await this.getMeliProductDetail.getListingPrices(itemId, {
+    const listingPrices = await this.getMeliProductDetail.getListingPrices(
+      itemId,
+      {
         price: price ? Number(price) : undefined,
         categoryId,
         listingTypeId,
-      });
+      },
+    );
 
     if (!listingPrices) {
       throw new NotFoundException(

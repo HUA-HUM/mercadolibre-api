@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { GetValidMeliAccessTokenInteractor } from 'src/core/interactors/GetValidMeliAccessTokenInteractor';
 import type {
   MeliDeleteResponse,
+  MeliPutResponse,
   MeliRequestConfig,
 } from 'src/core/adapters/repositories/mercadolibre/http/IMeliHttpClient';
 import { MeliHttpErrorHandler } from './error/meliHttpError';
@@ -61,6 +62,42 @@ export class MeliHttpClient {
     }
   }
 
+  async put<T>(
+    url: string,
+    body: unknown,
+    config?: MeliRequestConfig,
+  ): Promise<T | null> {
+    const response = await this.putWithMeta<T>(url, body, config);
+    return response?.data ?? null;
+  }
+
+  async putWithMeta<T>(
+    url: string,
+    body: unknown,
+    config?: MeliRequestConfig,
+  ): Promise<MeliPutResponse<T> | null> {
+    try {
+      const token = await this.getToken.execute(config?.appKey);
+
+      const response = await this.client.put<T>(url, body, {
+        ...this.toAxiosConfig(config),
+        validateStatus: (status) => status < 500,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          ...(config?.headers ?? {}),
+        },
+      });
+
+      return {
+        status: response.status,
+        data: response.data === '' ? null : (response.data ?? null),
+      };
+    } catch (error) {
+      return MeliHttpErrorHandler.handle(error);
+    }
+  }
+
   async delete<T>(url: string, config?: MeliRequestConfig): Promise<T | null> {
     const response = await this.deleteWithMeta<T>(url, config);
     return response?.data ?? null;
@@ -97,12 +134,15 @@ export class MeliHttpClient {
     }
   }
 
-  private toAxiosConfig(config?: MeliRequestConfig): AxiosRequestConfig | undefined {
+  private toAxiosConfig(
+    config?: MeliRequestConfig,
+  ): AxiosRequestConfig | undefined {
     if (!config) {
       return undefined;
     }
 
-    const { appKey: _appKey, ...axiosConfig } = config;
+    const axiosConfig = { ...config };
+    delete axiosConfig.appKey;
     return axiosConfig;
   }
 }

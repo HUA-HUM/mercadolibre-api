@@ -1,6 +1,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { IMeliHttpClient } from 'src/core/adapters/repositories/mercadolibre/http/IMeliHttpClient';
-import { IMeliProductDetailRepository } from 'src/core/adapters/repositories/mercadolibre/products/get/IMeliProductDetailRepository';
+import {
+  DeleteMeliProductResult,
+  IMeliProductDetailRepository,
+} from 'src/core/adapters/repositories/mercadolibre/products/get/IMeliProductDetailRepository';
 import { MeliProductDescription } from 'src/core/entitis/mercadolibre/products/get/MeliProductDescription';
 import { MeliProductDetail } from 'src/core/entitis/mercadolibre/products/get/MeliProductDetail';
 import { MeliListingPrice } from 'src/core/entitis/mercadolibre/products/get/MeliListingPrice';
@@ -93,6 +96,8 @@ type MeliMultiGetItemResponse = {
   body?: MeliItemResponse;
 };
 
+const DELETE_RETRY_DELAY_MS = 500;
+
 @Injectable()
 export class MeliProductDetailRepository implements IMeliProductDetailRepository {
   private readonly logger = new Logger(MeliProductDetailRepository.name);
@@ -116,7 +121,7 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
 
     try {
       return this.mapItemDetail(item, itemId, descriptionResponse);
-    } catch (error) {
+    } catch (error: unknown) {
       this.logger.error(`Failed to map Mercado Libre product detail`, {
         itemId,
         error,
@@ -167,6 +172,88 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
           descriptionMap.get(item.body.id ?? '') ?? null,
         ),
       );
+  }
+
+  async deleteProduct(itemId: string): Promise<DeleteMeliProductResult | null> {
+    if (!itemId) return null;
+
+    const path = `/items/${encodeURIComponent(itemId)}`;
+    const currentItem = await this.httpClient.get<MeliItemResponse | null>(
+      path,
+    );
+
+    if (!currentItem) {
+      return null;
+    }
+
+    const currentSubStatus = this.toStringArray(currentItem.sub_status);
+    if (currentSubStatus.includes('deleted')) {
+      return {
+        id: currentItem.id ?? itemId,
+        deleted: true,
+        alreadyDeleted: true,
+        closePerformed: false,
+        status: currentItem.status ?? 'closed',
+        subStatus: currentSubStatus,
+      };
+    }
+
+    let closePerformed = false;
+    if (currentItem.status !== 'closed') {
+      const closeResponse = await this.httpClient.putWithMeta<MeliItemResponse>(
+        path,
+        { status: 'closed' },
+      );
+
+      if (!closeResponse || !this.isSuccessful(closeResponse.status)) {
+        throw new Error(
+          `Mercado Libre could not close item ${itemId}: ${JSON.stringify(
+            closeResponse?.data ?? null,
+          )}`,
+        );
+      }
+
+      closePerformed = true;
+    }
+
+    let deleteResponse = await this.httpClient.putWithMeta<MeliItemResponse>(
+      path,
+      {
+        deleted: true,
+      },
+    );
+
+    if (this.isOptimisticLockError(deleteResponse?.data)) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, DELETE_RETRY_DELAY_MS),
+      );
+      deleteResponse = await this.httpClient.putWithMeta<MeliItemResponse>(
+        path,
+        { deleted: true },
+      );
+    }
+
+    if (!deleteResponse || !this.isSuccessful(deleteResponse.status)) {
+      throw new Error(
+        `Mercado Libre could not delete item ${itemId}: ${JSON.stringify(
+          deleteResponse?.data ?? null,
+        )}`,
+      );
+    }
+
+    const deletedItem =
+      deleteResponse.data ??
+      (await this.httpClient.get<MeliItemResponse | null>(path));
+    const subStatus = this.toStringArray(deletedItem?.sub_status);
+
+    return {
+      id: deletedItem?.id ?? currentItem.id ?? itemId,
+      deleted: subStatus.includes('deleted') || deleteResponse.status === 200,
+      alreadyDeleted: false,
+      closePerformed,
+      status: deletedItem?.status ?? 'closed',
+      subStatus,
+    };
   }
 
   async getProductDescription(
@@ -309,5 +396,27 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
         : [],
       deal_ids: Array.isArray(item.deal_ids) ? item.deal_ids : [],
     };
+  }
+
+  private isSuccessful(status: number): boolean {
+    return status >= 200 && status < 300;
+  }
+
+  private isOptimisticLockError(data: unknown): boolean {
+    if (!data || typeof data !== 'object') {
+      return false;
+    }
+
+    const message = (data as Record<string, unknown>).message;
+    return (
+      typeof message === 'string' &&
+      message.toLowerCase().includes('optimistic locking')
+    );
+  }
+
+  private toStringArray(value: unknown): string[] {
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === 'string')
+      : [];
   }
 }

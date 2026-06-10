@@ -9,6 +9,8 @@ export interface MeliDeleteResponse<T> {
   data: T | null;
 }
 
+export type MeliPutResponse<T> = MeliDeleteResponse<T>;
+
 export interface IMeliHttpClient {
   get<T>(path: string, config?: MeliRequestConfig): Promise<T | null>;
   post<T>(
@@ -16,6 +18,16 @@ export interface IMeliHttpClient {
     body: unknown,
     config?: MeliRequestConfig,
   ): Promise<T | null>;
+  put<T>(
+    path: string,
+    body: unknown,
+    config?: MeliRequestConfig,
+  ): Promise<T | null>;
+  putWithMeta<T>(
+    path: string,
+    body: unknown,
+    config?: MeliRequestConfig,
+  ): Promise<MeliPutResponse<T> | null>;
   delete<T>(path: string, config?: MeliRequestConfig): Promise<T | null>;
   deleteWithMeta<T>(
     path: string,

@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { IMeliProductDetailRepository } from 'src/core/adapters/repositories/mercadolibre/products/get/IMeliProductDetailRepository';
+import type { DeleteMeliProductResult } from 'src/core/adapters/repositories/mercadolibre/products/get/IMeliProductDetailRepository';
 import { MeliProductDescription } from 'src/core/entitis/mercadolibre/products/get/MeliProductDescription';
 import { MeliProductDetail } from 'src/core/entitis/mercadolibre/products/get/MeliProductDetail';
 import { MeliListingPrice } from 'src/core/entitis/mercadolibre/products/get/MeliListingPrice';
@@ -32,6 +33,14 @@ export class GetMeliProductDetailService {
     }
 
     return this.meliProductDetailRepository.getProductsDetail(itemIds);
+  }
+
+  async deleteProduct(itemId: string): Promise<DeleteMeliProductResult | null> {
+    if (!itemId) {
+      throw new Error('ItemId is required');
+    }
+
+    return this.meliProductDetailRepository.deleteProduct(itemId);
   }
 
   async getDescription(itemId: string): Promise<MeliProductDescription | null> {
