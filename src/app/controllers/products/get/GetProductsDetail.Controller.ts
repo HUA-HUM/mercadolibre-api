@@ -64,6 +64,11 @@ export class GetProductsDetailController {
     status: 404,
     description: 'Publicación no encontrada.',
   })
+  @ApiResponse({
+    status: 502,
+    description:
+      'Mercado Libre rechazó el cierre o la eliminación. La respuesta incluye meliStatus y meliResponse.',
+  })
   async deleteProduct(@Param('itemId') itemId: string) {
     const result = await this.getMeliProductDetail.deleteProduct(itemId);
 

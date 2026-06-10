@@ -1,5 +1,13 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { IMeliHttpClient } from 'src/core/adapters/repositories/mercadolibre/http/IMeliHttpClient';
+import {
+  BadGatewayException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
+import type {
+  IMeliHttpClient,
+  MeliPutResponse,
+} from 'src/core/adapters/repositories/mercadolibre/http/IMeliHttpClient';
 import {
   DeleteMeliProductResult,
   IMeliProductDetailRepository,
@@ -96,7 +104,8 @@ type MeliMultiGetItemResponse = {
   body?: MeliItemResponse;
 };
 
-const DELETE_RETRY_DELAY_MS = 500;
+const DELETE_MAX_ATTEMPTS = 3;
+const DELETE_RETRY_DELAY_MS = 1000;
 
 @Injectable()
 export class MeliProductDetailRepository implements IMeliProductDetailRepository {
@@ -206,38 +215,47 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
       );
 
       if (!closeResponse || !this.isSuccessful(closeResponse.status)) {
-        throw new Error(
-          `Mercado Libre could not close item ${itemId}: ${JSON.stringify(
-            closeResponse?.data ?? null,
-          )}`,
+        throw this.createMutationError(
+          itemId,
+          'close',
+          closeResponse?.status,
+          closeResponse?.data,
         );
       }
 
       closePerformed = true;
+      await this.sleep(DELETE_RETRY_DELAY_MS);
     }
 
-    let deleteResponse = await this.httpClient.putWithMeta<MeliItemResponse>(
-      path,
-      {
-        deleted: true,
-      },
-    );
-
-    if (this.isOptimisticLockError(deleteResponse?.data)) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, DELETE_RETRY_DELAY_MS),
-      );
+    let deleteResponse: MeliPutResponse<MeliItemResponse> | null = null;
+    for (let attempt = 1; attempt <= DELETE_MAX_ATTEMPTS; attempt++) {
       deleteResponse = await this.httpClient.putWithMeta<MeliItemResponse>(
         path,
         { deleted: true },
       );
+
+      if (deleteResponse && this.isSuccessful(deleteResponse.status)) {
+        break;
+      }
+
+      const shouldRetry =
+        attempt < DELETE_MAX_ATTEMPTS &&
+        (deleteResponse?.status === 409 ||
+          this.isOptimisticLockError(deleteResponse?.data));
+
+      if (!shouldRetry) {
+        break;
+      }
+
+      await this.sleep(DELETE_RETRY_DELAY_MS);
     }
 
     if (!deleteResponse || !this.isSuccessful(deleteResponse.status)) {
-      throw new Error(
-        `Mercado Libre could not delete item ${itemId}: ${JSON.stringify(
-          deleteResponse?.data ?? null,
-        )}`,
+      throw this.createMutationError(
+        itemId,
+        'delete',
+        deleteResponse?.status,
+        deleteResponse?.data,
       );
     }
 
@@ -402,6 +420,22 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
     return status >= 200 && status < 300;
   }
 
+  private createMutationError(
+    itemId: string,
+    operation: 'close' | 'delete',
+    status?: number,
+    response?: unknown,
+  ): BadGatewayException {
+    return new BadGatewayException({
+      statusCode: 502,
+      message: `Mercado Libre could not ${operation} item ${itemId}`,
+      operation,
+      itemId,
+      meliStatus: status ?? null,
+      meliResponse: response ?? null,
+    });
+  }
+
   private isOptimisticLockError(data: unknown): boolean {
     if (!data || typeof data !== 'object') {
       return false;
@@ -418,5 +452,9 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
     return Array.isArray(value)
       ? value.filter((item): item is string => typeof item === 'string')
       : [];
+  }
+
+  private async sleep(ms: number): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
