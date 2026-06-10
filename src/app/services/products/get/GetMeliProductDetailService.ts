@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import type { IMeliProductDetailRepository } from 'src/core/adapters/repositories/mercadolibre/products/get/IMeliProductDetailRepository';
 import type { DeleteMeliProductResult } from 'src/core/adapters/repositories/mercadolibre/products/get/IMeliProductDetailRepository';
 import { MeliProductDescription } from 'src/core/entitis/mercadolibre/products/get/MeliProductDescription';
@@ -35,12 +35,19 @@ export class GetMeliProductDetailService {
     return this.meliProductDetailRepository.getProductsDetail(itemIds);
   }
 
-  async deleteProduct(itemId: string): Promise<DeleteMeliProductResult | null> {
+  async deleteProduct(
+    itemId: string,
+    appKey = 'default',
+  ): Promise<DeleteMeliProductResult | null> {
     if (!itemId) {
       throw new Error('ItemId is required');
     }
 
-    return this.meliProductDetailRepository.deleteProduct(itemId);
+    if (!['default', 'promotions-engine-api'].includes(appKey)) {
+      throw new BadRequestException(`Unsupported appKey "${appKey}"`);
+    }
+
+    return this.meliProductDetailRepository.deleteProduct(itemId, appKey);
   }
 
   async getDescription(itemId: string): Promise<MeliProductDescription | null> {

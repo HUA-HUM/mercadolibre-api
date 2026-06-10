@@ -42,12 +42,21 @@ export class GetProductsDetailController {
     example: 'MLA1757293798',
     description: 'ID de la publicación de Mercado Libre que se eliminará.',
   })
+  @ApiQuery({
+    name: 'appKey',
+    required: false,
+    enum: ['default', 'promotions-engine-api'],
+    example: 'default',
+    description:
+      'Aplicación/token de Mercado Libre utilizado para cerrar y eliminar.',
+  })
   @ApiResponse({
     status: 200,
     description: 'Publicación eliminada o previamente eliminada.',
     schema: {
       example: {
         id: 'MLA1757293798',
+        appKey: 'default',
         deleted: true,
         alreadyDeleted: false,
         closePerformed: true,
@@ -65,12 +74,23 @@ export class GetProductsDetailController {
     description: 'Publicación no encontrada.',
   })
   @ApiResponse({
+    status: 403,
+    description:
+      'La aplicación/token seleccionado no está autorizado por Mercado Libre para modificar la publicación.',
+  })
+  @ApiResponse({
     status: 502,
     description:
       'Mercado Libre rechazó el cierre o la eliminación. La respuesta incluye meliStatus y meliResponse.',
   })
-  async deleteProduct(@Param('itemId') itemId: string) {
-    const result = await this.getMeliProductDetail.deleteProduct(itemId);
+  async deleteProduct(
+    @Param('itemId') itemId: string,
+    @Query('appKey') appKey = 'default',
+  ) {
+    const result = await this.getMeliProductDetail.deleteProduct(
+      itemId,
+      appKey,
+    );
 
     if (!result) {
       throw new NotFoundException(`Product with id ${itemId} not found`);

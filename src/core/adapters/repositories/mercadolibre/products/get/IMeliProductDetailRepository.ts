@@ -4,6 +4,7 @@ import { MeliListingPrice } from 'src/core/entitis/mercadolibre/products/get/Mel
 
 export interface DeleteMeliProductResult {
   id: string;
+  appKey: string;
   deleted: boolean;
   alreadyDeleted: boolean;
   closePerformed: boolean;
@@ -14,7 +15,10 @@ export interface DeleteMeliProductResult {
 export interface IMeliProductDetailRepository {
   getProductDetail(itemId: string): Promise<MeliProductDetail | null>;
   getProductsDetail(itemIds: string[]): Promise<MeliProductDetail[]>;
-  deleteProduct(itemId: string): Promise<DeleteMeliProductResult | null>;
+  deleteProduct(
+    itemId: string,
+    appKey?: string,
+  ): Promise<DeleteMeliProductResult | null>;
   getProductDescription(itemId: string): Promise<MeliProductDescription | null>;
   getListingPrices(
     itemId: string,

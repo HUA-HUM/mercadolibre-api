@@ -1,5 +1,7 @@
 import {
   BadGatewayException,
+  ForbiddenException,
+  HttpException,
   Inject,
   Injectable,
   Logger,
@@ -183,12 +185,16 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
       );
   }
 
-  async deleteProduct(itemId: string): Promise<DeleteMeliProductResult | null> {
+  async deleteProduct(
+    itemId: string,
+    appKey = 'default',
+  ): Promise<DeleteMeliProductResult | null> {
     if (!itemId) return null;
 
     const path = `/items/${encodeURIComponent(itemId)}`;
     const currentItem = await this.httpClient.get<MeliItemResponse | null>(
       path,
+      { appKey },
     );
 
     if (!currentItem) {
@@ -199,6 +205,7 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
     if (currentSubStatus.includes('deleted')) {
       return {
         id: currentItem.id ?? itemId,
+        appKey,
         deleted: true,
         alreadyDeleted: true,
         closePerformed: false,
@@ -212,6 +219,7 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
       const closeResponse = await this.httpClient.putWithMeta<MeliItemResponse>(
         path,
         { status: 'closed' },
+        { appKey },
       );
 
       if (!closeResponse || !this.isSuccessful(closeResponse.status)) {
@@ -232,6 +240,7 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
       deleteResponse = await this.httpClient.putWithMeta<MeliItemResponse>(
         path,
         { deleted: true },
+        { appKey },
       );
 
       if (deleteResponse && this.isSuccessful(deleteResponse.status)) {
@@ -261,11 +270,12 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
 
     const deletedItem =
       deleteResponse.data ??
-      (await this.httpClient.get<MeliItemResponse | null>(path));
+      (await this.httpClient.get<MeliItemResponse | null>(path, { appKey }));
     const subStatus = this.toStringArray(deletedItem?.sub_status);
 
     return {
       id: deletedItem?.id ?? currentItem.id ?? itemId,
+      appKey,
       deleted: subStatus.includes('deleted') || deleteResponse.status === 200,
       alreadyDeleted: false,
       closePerformed,
@@ -425,15 +435,19 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
     operation: 'close' | 'delete',
     status?: number,
     response?: unknown,
-  ): BadGatewayException {
-    return new BadGatewayException({
-      statusCode: 502,
+  ): HttpException {
+    const exceptionBody = {
+      statusCode: status === 403 ? 403 : 502,
       message: `Mercado Libre could not ${operation} item ${itemId}`,
       operation,
       itemId,
       meliStatus: status ?? null,
       meliResponse: response ?? null,
-    });
+    };
+
+    return status === 403
+      ? new ForbiddenException(exceptionBody)
+      : new BadGatewayException(exceptionBody);
   }
 
   private isOptimisticLockError(data: unknown): boolean {
