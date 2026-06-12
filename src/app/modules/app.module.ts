@@ -8,6 +8,7 @@ import { MeliOrdersModule } from './orders/MeliOrders.Module';
 import { MeliCategoriesModule } from './categories/MeliCategories.Module';
 import { GetProductsDetailModule } from './products/get/GetProductsDetail.Module';
 import { SellerPromotionsModule } from './promotions/SellerPromotions.Module';
+import { MeliProductDeleteQueueModule } from '../infra/queues/meli-product-delete-queue.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SellerPromotionsModule } from './promotions/SellerPromotions.Module';
     MeliCategoriesModule,
     GetProductsDetailModule,
     SellerPromotionsModule,
+    MeliProductDeleteQueueModule,
 
     // 🔐 Endpoints internos
     GetMeliTokenModule,
