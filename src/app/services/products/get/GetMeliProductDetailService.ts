@@ -1,6 +1,9 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import type { IMeliProductDetailRepository } from 'src/core/adapters/repositories/mercadolibre/products/get/IMeliProductDetailRepository';
-import type { DeleteMeliProductResult } from 'src/core/adapters/repositories/mercadolibre/products/get/IMeliProductDetailRepository';
+import type {
+  DeleteMeliProductResult,
+  UpdateMeliProductPriceResult,
+} from 'src/core/adapters/repositories/mercadolibre/products/get/IMeliProductDetailRepository';
 import { MeliProductDescription } from 'src/core/entitis/mercadolibre/products/get/MeliProductDescription';
 import { MeliProductDetail } from 'src/core/entitis/mercadolibre/products/get/MeliProductDetail';
 import { MeliListingPrice } from 'src/core/entitis/mercadolibre/products/get/MeliListingPrice';
@@ -48,6 +51,30 @@ export class GetMeliProductDetailService {
     }
 
     return this.meliProductDetailRepository.deleteProduct(itemId, appKey);
+  }
+
+  async updatePrice(
+    itemId: string,
+    price: number,
+    appKey = 'default',
+  ): Promise<UpdateMeliProductPriceResult | null> {
+    if (!itemId) {
+      throw new Error('ItemId is required');
+    }
+
+    if (!Number.isFinite(price) || price <= 0) {
+      throw new BadRequestException('Price must be a positive number');
+    }
+
+    if (!['default', 'promotions-engine-api'].includes(appKey)) {
+      throw new BadRequestException(`Unsupported appKey "${appKey}"`);
+    }
+
+    return this.meliProductDetailRepository.updateProductPrice(
+      itemId,
+      price,
+      appKey,
+    );
   }
 
   async getDescription(itemId: string): Promise<MeliProductDescription | null> {

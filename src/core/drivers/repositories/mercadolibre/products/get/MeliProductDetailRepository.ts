@@ -13,6 +13,7 @@ import type {
 import {
   DeleteMeliProductResult,
   IMeliProductDetailRepository,
+  UpdateMeliProductPriceResult,
 } from 'src/core/adapters/repositories/mercadolibre/products/get/IMeliProductDetailRepository';
 import { MeliProductDescription } from 'src/core/entitis/mercadolibre/products/get/MeliProductDescription';
 import { MeliProductDetail } from 'src/core/entitis/mercadolibre/products/get/MeliProductDetail';
@@ -284,6 +285,51 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
     };
   }
 
+  async updateProductPrice(
+    itemId: string,
+    price: number,
+    appKey = 'default',
+  ): Promise<UpdateMeliProductPriceResult | null> {
+    if (!itemId) return null;
+
+    const path = `/items/${encodeURIComponent(itemId)}`;
+    const currentItem = await this.httpClient.get<MeliItemResponse | null>(
+      path,
+      { appKey },
+    );
+
+    if (!currentItem) {
+      return null;
+    }
+
+    const updateResponse = await this.httpClient.putWithMeta<MeliItemResponse>(
+      path,
+      { price },
+      { appKey },
+    );
+
+    if (!updateResponse || !this.isSuccessful(updateResponse.status)) {
+      throw this.createMutationError(
+        itemId,
+        'update_price',
+        updateResponse?.status,
+        updateResponse?.data,
+      );
+    }
+
+    const updatedItem = updateResponse.data;
+
+    return {
+      id: updatedItem?.id ?? currentItem.id ?? itemId,
+      appKey,
+      previousPrice: currentItem.price ?? null,
+      price: updatedItem?.price ?? price,
+      currency: updatedItem?.currency_id ?? currentItem.currency_id ?? null,
+      status: updatedItem?.status ?? currentItem.status ?? null,
+      lastUpdated: updatedItem?.last_updated ?? null,
+    };
+  }
+
   async getProductDescription(
     itemId: string,
   ): Promise<MeliProductDescription | null> {
@@ -432,7 +478,7 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
 
   private createMutationError(
     itemId: string,
-    operation: 'close' | 'delete',
+    operation: 'close' | 'delete' | 'update_price',
     status?: number,
     response?: unknown,
   ): HttpException {

@@ -12,6 +12,16 @@ export interface DeleteMeliProductResult {
   subStatus: string[];
 }
 
+export interface UpdateMeliProductPriceResult {
+  id: string;
+  appKey: string;
+  previousPrice: number | null;
+  price: number;
+  currency: string | null;
+  status: string | null;
+  lastUpdated: string | null;
+}
+
 export interface IMeliProductDetailRepository {
   getProductDetail(itemId: string): Promise<MeliProductDetail | null>;
   getProductsDetail(itemIds: string[]): Promise<MeliProductDetail[]>;
@@ -19,6 +29,11 @@ export interface IMeliProductDetailRepository {
     itemId: string,
     appKey?: string,
   ): Promise<DeleteMeliProductResult | null>;
+  updateProductPrice(
+    itemId: string,
+    price: number,
+    appKey?: string,
+  ): Promise<UpdateMeliProductPriceResult | null>;
   getProductDescription(itemId: string): Promise<MeliProductDescription | null>;
   getListingPrices(
     itemId: string,

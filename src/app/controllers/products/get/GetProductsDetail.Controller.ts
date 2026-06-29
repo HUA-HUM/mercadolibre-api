@@ -2,6 +2,8 @@ import {
   Controller,
   Delete,
   Get,
+  Body,
+  Patch,
   Param,
   NotFoundException,
   Query,
@@ -10,6 +12,7 @@ import {
 import {
   ApiTags,
   ApiOperation,
+  ApiBody,
   ApiParam,
   ApiQuery,
   ApiResponse,
@@ -20,6 +23,10 @@ import { GetMeliProductDetailService } from 'src/app/services/products/get/GetMe
 import { MeliProductDescription } from 'src/core/entitis/mercadolibre/products/get/MeliProductDescription';
 import { MeliProductDetail } from 'src/core/entitis/mercadolibre/products/get/MeliProductDetail';
 import { MeliListingPrice } from 'src/core/entitis/mercadolibre/products/get/MeliListingPrice';
+
+interface UpdateMeliProductPriceBody {
+  price: number;
+}
 
 @ApiTags('MercadoLibre - Products')
 @Controller('meli/products')
@@ -89,6 +96,99 @@ export class GetProductsDetailController {
   ) {
     const result = await this.getMeliProductDetail.deleteProduct(
       itemId,
+      appKey,
+    );
+
+    if (!result) {
+      throw new NotFoundException(`Product with id ${itemId} not found`);
+    }
+
+    return result;
+  }
+
+  @Patch(':itemId/price')
+  @UseGuards(InternalApiKeyGuard)
+  @ApiSecurity('x-internal-api-key')
+  @ApiOperation({
+    summary: 'Actualiza el precio de una publicación',
+    description:
+      'Actualiza el precio de una publicación de Mercado Libre usando PUT /items/:itemId. Requiere API key interna.',
+  })
+  @ApiParam({
+    name: 'itemId',
+    required: true,
+    example: 'MLA1757293798',
+    description: 'ID de la publicación de Mercado Libre.',
+  })
+  @ApiQuery({
+    name: 'appKey',
+    required: false,
+    enum: ['default', 'promotions-engine-api'],
+    example: 'default',
+    description:
+      'Aplicación/token de Mercado Libre utilizado para actualizar el precio.',
+  })
+  @ApiBody({
+    schema: {
+      example: {
+        price: 943999,
+      },
+      type: 'object',
+      required: ['price'],
+      properties: {
+        price: {
+          type: 'number',
+          example: 943999,
+          description: 'Nuevo precio de la publicación.',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Precio actualizado.',
+    schema: {
+      example: {
+        id: 'MLA1757293798',
+        appKey: 'default',
+        previousPrice: 943999,
+        price: 950000,
+        currency: 'ARS',
+        status: 'active',
+        lastUpdated: '2026-06-29T15:30:00.000Z',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Precio inválido.',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'API key interna ausente o inválida.',
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'La aplicación/token seleccionado no está autorizado por Mercado Libre para modificar la publicación.',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Publicación no encontrada.',
+  })
+  @ApiResponse({
+    status: 502,
+    description:
+      'Mercado Libre rechazó la actualización. La respuesta incluye meliStatus y meliResponse.',
+  })
+  async updateProductPrice(
+    @Param('itemId') itemId: string,
+    @Body() body: UpdateMeliProductPriceBody,
+    @Query('appKey') appKey = 'default',
+  ) {
+    const result = await this.getMeliProductDetail.updatePrice(
+      itemId,
+      Number(body.price),
       appKey,
     );
 
