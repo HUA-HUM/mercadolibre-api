@@ -13,6 +13,7 @@ import type {
 import {
   DeleteMeliProductResult,
   IMeliProductDetailRepository,
+  UpdateMeliProductPriceAndStockResult,
   UpdateMeliProductPriceResult,
 } from 'src/core/adapters/repositories/mercadolibre/products/get/IMeliProductDetailRepository';
 import { MeliProductDescription } from 'src/core/entitis/mercadolibre/products/get/MeliProductDescription';
@@ -330,6 +331,49 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
     };
   }
 
+  async updateProductPriceAndStock(
+    itemId: string,
+    price: number,
+    stock?: number,
+    appKey = 'default',
+  ): Promise<UpdateMeliProductPriceAndStockResult> {
+    const path = `/items/${encodeURIComponent(itemId)}`;
+    const body: { price: number; available_quantity?: number } = { price };
+
+    if (stock !== undefined) {
+      body.available_quantity = stock;
+    }
+
+    const updateResponse = await this.httpClient.putWithMeta<MeliItemResponse>(
+      path,
+      body,
+      { appKey },
+    );
+
+    if (!updateResponse || !this.isSuccessful(updateResponse.status)) {
+      return {
+        id: itemId,
+        appKey,
+        ok: false,
+        error: `Mercado Libre could not update_price_stock item ${itemId}`,
+        meliStatus: updateResponse?.status ?? null,
+        meliResponse: updateResponse?.data ?? null,
+      };
+    }
+
+    const updatedItem = updateResponse.data;
+
+    return {
+      id: updatedItem?.id ?? itemId,
+      appKey,
+      ok: true,
+      price: updatedItem?.price ?? price,
+      stock: updatedItem?.available_quantity ?? stock,
+      status: updatedItem?.status ?? null,
+      lastUpdated: updatedItem?.last_updated ?? null,
+    };
+  }
+
   async getProductDescription(
     itemId: string,
   ): Promise<MeliProductDescription | null> {
@@ -478,7 +522,7 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
 
   private createMutationError(
     itemId: string,
-    operation: 'close' | 'delete' | 'update_price',
+    operation: 'close' | 'delete' | 'update_price' | 'update_price_stock',
     status?: number,
     response?: unknown,
   ): HttpException {

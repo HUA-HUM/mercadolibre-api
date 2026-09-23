@@ -26,6 +26,11 @@ import { MeliListingPrice } from 'src/core/entitis/mercadolibre/products/get/Mel
 
 interface UpdateMeliProductPriceBody {
   price: number;
+  stock?: number;
+}
+
+interface BulkUpdateMeliProductPriceBody extends UpdateMeliProductPriceBody {
+  mla: string;
 }
 
 @ApiTags('MercadoLibre - Products')
@@ -34,6 +39,96 @@ export class GetProductsDetailController {
   constructor(
     private readonly getMeliProductDetail: GetMeliProductDetailService,
   ) {}
+
+  @Patch('bulk')
+  @UseGuards(InternalApiKeyGuard)
+  @ApiSecurity('x-internal-api-key')
+  @ApiOperation({
+    summary: 'Actualiza precio y stock de múltiples publicaciones',
+    description:
+      'Recibe un array de publicaciones y actualiza cada una con PUT /items/:itemId de Mercado Libre, de a una. El stock es opcional. Requiere API key interna.',
+  })
+  @ApiQuery({
+    name: 'appKey',
+    required: false,
+    enum: ['default', 'promotions-engine-api'],
+    example: 'default',
+    description:
+      'Aplicación/token de Mercado Libre utilizado para actualizar las publicaciones.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'array',
+      example: [
+        {
+          mla: 'MLA1757293798',
+          price: 950000,
+          stock: 10,
+        },
+      ],
+      items: {
+        type: 'object',
+        required: ['mla', 'price'],
+        properties: {
+          mla: {
+            type: 'string',
+            example: 'MLA1757293798',
+          },
+          price: {
+            type: 'number',
+            example: 950000,
+          },
+          stock: {
+            type: 'number',
+            example: 10,
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description:
+      'Lote procesado. Los fallos individuales se informan en results sin abortar el resto.',
+    schema: {
+      example: {
+        appKey: 'default',
+        total: 2,
+        updated: 1,
+        failed: 1,
+        results: [
+          {
+            mla: 'MLA1757293798',
+            ok: true,
+            price: 950000,
+            stock: 10,
+            status: 'active',
+          },
+          {
+            mla: 'MLA123',
+            ok: false,
+            error: 'Mercado Libre could not update_price_stock item MLA123',
+            meliStatus: 400,
+            meliResponse: {},
+          },
+        ],
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Body inválido, lote vacío o mayor a 50 ítems.',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'API key interna ausente o inválida.',
+  })
+  async updateProductsPriceAndStockBulk(
+    @Body() body: BulkUpdateMeliProductPriceBody[],
+    @Query('appKey') appKey = 'default',
+  ) {
+    return this.getMeliProductDetail.updatePriceAndStockBulk(body, appKey);
+  }
 
   @Delete(':itemId')
   @UseGuards(InternalApiKeyGuard)
@@ -112,7 +207,7 @@ export class GetProductsDetailController {
   @ApiOperation({
     summary: 'Actualiza el precio de una publicación',
     description:
-      'Actualiza el precio de una publicación de Mercado Libre usando PUT /items/:itemId. Requiere API key interna.',
+      'Actualiza el precio de una publicación de Mercado Libre usando PUT /items/:itemId. El stock es opcional. Requiere API key interna.',
   })
   @ApiParam({
     name: 'itemId',
@@ -132,6 +227,7 @@ export class GetProductsDetailController {
     schema: {
       example: {
         price: 943999,
+        stock: 10,
       },
       type: 'object',
       required: ['price'],
@@ -140,6 +236,11 @@ export class GetProductsDetailController {
           type: 'number',
           example: 943999,
           description: 'Nuevo precio de la publicación.',
+        },
+        stock: {
+          type: 'number',
+          example: 10,
+          description: 'Nuevo stock de la publicación. Opcional.',
         },
       },
     },
@@ -190,6 +291,7 @@ export class GetProductsDetailController {
       itemId,
       Number(body.price),
       appKey,
+      body.stock === undefined ? undefined : Number(body.stock),
     );
 
     if (!result) {

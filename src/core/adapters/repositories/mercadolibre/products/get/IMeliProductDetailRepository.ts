@@ -22,6 +22,19 @@ export interface UpdateMeliProductPriceResult {
   lastUpdated: string | null;
 }
 
+export interface UpdateMeliProductPriceAndStockResult {
+  id: string;
+  appKey: string;
+  ok: boolean;
+  price?: number;
+  stock?: number;
+  status?: string | null;
+  lastUpdated?: string | null;
+  error?: string;
+  meliStatus?: number | null;
+  meliResponse?: unknown;
+}
+
 export interface IMeliProductDetailRepository {
   getProductDetail(itemId: string): Promise<MeliProductDetail | null>;
   getProductsDetail(itemIds: string[]): Promise<MeliProductDetail[]>;
@@ -34,6 +47,12 @@ export interface IMeliProductDetailRepository {
     price: number,
     appKey?: string,
   ): Promise<UpdateMeliProductPriceResult | null>;
+  updateProductPriceAndStock(
+    itemId: string,
+    price: number,
+    stock?: number,
+    appKey?: string,
+  ): Promise<UpdateMeliProductPriceAndStockResult>;
   getProductDescription(itemId: string): Promise<MeliProductDescription | null>;
   getListingPrices(
     itemId: string,
