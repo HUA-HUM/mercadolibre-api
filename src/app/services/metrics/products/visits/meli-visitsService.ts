@@ -1,4 +1,9 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { IGetProductsVisitRepository } from 'src/core/adapters/repositories/mercadolibre/metrics/products/visits/IGetProductsVisitRepository';
 import { ProductVisits } from 'src/core/entitis/mercadolibre/metrics/products/visits/ProductVisits';
 
@@ -20,8 +25,20 @@ export class MeliVisitsService {
 
   async getProductVisits(itemId: string): Promise<ProductVisits> {
     const [visits] = await this.getProductsVisits([itemId]);
+
+    if (!visits) {
+      throw new NotFoundException(
+        `Mercado Libre did not return visits for item ${itemId}`,
+      );
+    }
+
     return visits;
   }
+
+  /**
+   * Devuelve solo los ids con una medición real de Mercado Libre. Los que ML
+   * no contestó se omiten del array: un 0 en la respuesta es siempre un 0 real.
+   */
 
   async getProductsVisits(itemIds: string[]): Promise<ProductVisits[]> {
     const ids = [...new Set(itemIds.map((id) => id.trim()).filter(Boolean))];
@@ -46,16 +63,16 @@ export class MeliVisitsService {
       const fetched = await this.visitsRepo.getVisitsByIds(missing);
       const expiresAt = Date.now() + VISITS_CACHE_TTL_MS;
 
-      for (const id of missing) {
-        // Se cachea también el 0 (sin datos) para no reconsultar en loop
-        this.setCache(id, { total: fetched[id] ?? 0, expiresAt });
+      // Solo se cachean mediciones reales; un id sin respuesta se reintenta
+      for (const [id, total] of Object.entries(fetched)) {
+        this.setCache(id, { total, expiresAt });
       }
     }
 
-    return ids.map((id) => ({
-      item_id: id,
-      total: this.cache.get(id)?.total ?? 0,
-    }));
+    return ids.flatMap((id) => {
+      const entry = this.cache.get(id);
+      return entry ? [{ item_id: id, total: entry.total }] : [];
+    });
   }
 
   private setCache(id: string, entry: CacheEntry): void {
