@@ -63,15 +63,6 @@ export class SellerPromotionsRepository implements ISellerPromotionsRepository {
       promotionId,
     )}/items?${query.toString()}`;
 
-    console.log('[MELI PROMOTIONS GET ITEMS] request', {
-      appKey: PROMOTIONS_APP_KEY,
-      promotionId,
-      promotionType,
-      limit,
-      searchAfter,
-      path,
-    });
-
     for (
       let attempt = 1;
       attempt <= GET_PROMOTION_ITEMS_MAX_ATTEMPTS;

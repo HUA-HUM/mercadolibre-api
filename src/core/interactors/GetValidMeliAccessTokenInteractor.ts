@@ -32,10 +32,6 @@ export class GetValidMeliAccessTokenInteractor {
     }
 
     if (this.isTokenValid(token)) {
-      console.log(`[MELI TOKEN] using cached token for app "${appKey}"`, {
-        token: maskToken(token.access_token),
-        expires_at: token.expires_at,
-      });
       return token.access_token;
     }
 
