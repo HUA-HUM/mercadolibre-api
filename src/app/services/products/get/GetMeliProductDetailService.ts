@@ -17,7 +17,7 @@ export class GetMeliProductDetailService {
 
   async execute(itemId: string): Promise<MeliProductDetail | null> {
     if (!itemId) {
-      throw new Error('ItemId is required');
+      throw new BadRequestException('ItemId is required');
     }
 
     const product =
@@ -32,7 +32,7 @@ export class GetMeliProductDetailService {
 
   async getBulk(itemIds: string[]): Promise<MeliProductDetail[]> {
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
-      throw new Error('At least one itemId is required');
+      throw new BadRequestException('At least one itemId is required');
     }
 
     return this.meliProductDetailRepository.getProductsDetail(itemIds);
@@ -43,7 +43,7 @@ export class GetMeliProductDetailService {
     appKey = 'default',
   ): Promise<DeleteMeliProductResult | null> {
     if (!itemId) {
-      throw new Error('ItemId is required');
+      throw new BadRequestException('ItemId is required');
     }
 
     if (!['default', 'promotions-engine-api'].includes(appKey)) {
@@ -59,7 +59,7 @@ export class GetMeliProductDetailService {
     appKey = 'default',
   ): Promise<UpdateMeliProductPriceResult | null> {
     if (!itemId) {
-      throw new Error('ItemId is required');
+      throw new BadRequestException('ItemId is required');
     }
 
     if (!Number.isFinite(price) || price <= 0) {
@@ -79,7 +79,7 @@ export class GetMeliProductDetailService {
 
   async getDescription(itemId: string): Promise<MeliProductDescription | null> {
     if (!itemId) {
-      throw new Error('ItemId is required');
+      throw new BadRequestException('ItemId is required');
     }
 
     return this.meliProductDetailRepository.getProductDescription(itemId);
@@ -94,7 +94,7 @@ export class GetMeliProductDetailService {
     },
   ): Promise<MeliListingPrice[] | null> {
     if (!itemId) {
-      throw new Error('ItemId is required');
+      throw new BadRequestException('ItemId is required');
     }
 
     return this.meliProductDetailRepository.getListingPrices(itemId, params);

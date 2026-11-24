@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import type { IGetCategoriesTreeRepository } from 'src/core/adapters/repositories/mercadolibre/categories/IGetCategoriesTreeRepository';
 import { Category } from 'src/core/entitis/mercadolibre/categories/Category';
 import { MeliCategoryRaw } from 'src/core/entitis/mercadolibre/categories/MeliCategoryRaw';
@@ -18,15 +18,17 @@ export class GetCategoriesTreeService {
   // 🔹 Devuelve categoría completa por ID
   async getCategoryById(categoryId: string): Promise<Category> {
     if (!categoryId) {
-      throw new Error('CategoryId is required');
+      throw new BadRequestException('CategoryId is required');
     }
 
     return this.repo.getCategoryById(categoryId);
   }
 
-  async getRawCategoryById(categoryId: string): Promise<MeliCategoryRaw | null> {
+  async getRawCategoryById(
+    categoryId: string,
+  ): Promise<MeliCategoryRaw | null> {
     if (!categoryId) {
-      throw new Error('CategoryId is required');
+      throw new BadRequestException('CategoryId is required');
     }
 
     return this.repo.getRawCategoryById(categoryId);

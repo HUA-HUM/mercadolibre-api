@@ -40,6 +40,9 @@ export class MeliProductsRepository implements IMeliProductsRepository {
       // 🔥 CRÍTICO: SIEMPRE enviar search_type=scan
       query.append('search_type', 'scan');
 
+      // respetar el filtro de estado también en modo scan
+      if (params.status) query.append('status', params.status);
+
       // mantener mismo limit en todas las llamadas
       query.append('limit', (params.limit ?? 100).toString());
 

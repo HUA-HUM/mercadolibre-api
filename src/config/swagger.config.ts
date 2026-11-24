@@ -11,7 +11,7 @@ Incluye:
 - Productos del seller
 - Métricas de visitas
 
-⚠️ Algunos endpoints son **internos** y requieren API Key.
+⚠️ Todos los endpoints son **internos** y requieren el header \`x-internal-api-key\`.
     `,
   )
   .setVersion('1.0')
@@ -26,5 +26,6 @@ Incluye:
     },
     'x-internal-api-key',
   )
+  .addSecurityRequirements('x-internal-api-key')
 
   .build();

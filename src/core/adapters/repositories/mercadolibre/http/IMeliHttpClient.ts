@@ -10,6 +10,7 @@ export interface MeliDeleteResponse<T> {
 }
 
 export type MeliPutResponse<T> = MeliDeleteResponse<T>;
+export type MeliPostResponse<T> = MeliDeleteResponse<T>;
 
 export interface IMeliHttpClient {
   get<T>(path: string, config?: MeliRequestConfig): Promise<T | null>;
@@ -18,6 +19,11 @@ export interface IMeliHttpClient {
     body: unknown,
     config?: MeliRequestConfig,
   ): Promise<T | null>;
+  postWithMeta<T>(
+    path: string,
+    body: unknown,
+    config?: MeliRequestConfig,
+  ): Promise<MeliPostResponse<T> | null>;
   put<T>(
     path: string,
     body: unknown,

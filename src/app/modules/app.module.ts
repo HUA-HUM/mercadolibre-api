@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { InternalApiKeyGuard } from '../guards/InternalApiKeyGuard';
 import { MeliHttpModule } from './http/meli-http.module';
 import { GetProductsModule } from './products/get/GetProducts.Module';
 import { MeliVisitsModule } from './metrics/products/visits/meli-visits.module';
@@ -18,7 +20,7 @@ import { MeliProductDeleteQueueModule } from '../infra/queues/meli-product-delet
     // 🌐 Infra MercadoLibre (HTTP + token válido)
     MeliHttpModule,
 
-    // 📦 Endpoints públicos
+    // 📦 Endpoints (todos protegidos por API key interna)
     GetProductsModule,
     MeliVisitsModule,
     MeliOrdersModule,
@@ -29,6 +31,10 @@ import { MeliProductDeleteQueueModule } from '../infra/queues/meli-product-delet
 
     // 🔐 Endpoints internos
     GetMeliTokenModule,
+  ],
+  providers: [
+    // 🔐 Todos los endpoints requieren x-internal-api-key
+    { provide: APP_GUARD, useClass: InternalApiKeyGuard },
   ],
 })
 export class AppModule {}

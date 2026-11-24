@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import type {
   GetOrdersByProductParams,
   GetOrdersParams,
@@ -19,7 +19,7 @@ export class GetOrdersService {
 
   getOrdersByProduct(params: GetOrdersByProductParams): Promise<OrdersPage> {
     if (!params.itemId) {
-      throw new Error('ItemId is required');
+      throw new BadRequestException('ItemId is required');
     }
 
     return this.ordersRepo.getOrdersByProduct(params);

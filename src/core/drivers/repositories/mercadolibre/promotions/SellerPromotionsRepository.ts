@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { HttpException, Inject, Injectable } from '@nestjs/common';
 import type { IMeliHttpClient } from 'src/core/adapters/repositories/mercadolibre/http/IMeliHttpClient';
 import {
   ActivateSellerPromotionRequest,
@@ -72,14 +72,16 @@ export class SellerPromotionsRepository implements ISellerPromotionsRepository {
       path,
     });
 
-    for (let attempt = 1; attempt <= GET_PROMOTION_ITEMS_MAX_ATTEMPTS; attempt++) {
+    for (
+      let attempt = 1;
+      attempt <= GET_PROMOTION_ITEMS_MAX_ATTEMPTS;
+      attempt++
+    ) {
       try {
-        const response = await this.meliHttpClient.get<SellerPromotionItemsResponse>(
-          path,
-          {
+        const response =
+          await this.meliHttpClient.get<SellerPromotionItemsResponse>(path, {
             appKey: PROMOTIONS_APP_KEY,
-          },
-        );
+          });
 
         if (attempt > 1) {
           console.log('[MELI PROMOTIONS GET ITEMS] recovered after retry', {
@@ -124,15 +126,31 @@ export class SellerPromotionsRepository implements ISellerPromotionsRepository {
       app_version: 'v2',
     });
 
-    return this.meliHttpClient.post<ActivateSellerPromotionResponse>(
-      `/seller-promotions/items/${encodeURIComponent(itemId)}?${query.toString()}`,
-      body,
-      {
-        appKey: PROMOTIONS_APP_KEY,
-        headers: {
-          'Content-Type': 'application/json',
+    const response =
+      await this.meliHttpClient.postWithMeta<ActivateSellerPromotionResponse>(
+        `/seller-promotions/items/${encodeURIComponent(itemId)}?${query.toString()}`,
+        body,
+        {
+          appKey: PROMOTIONS_APP_KEY,
         },
+      );
+
+    if (!response) return null;
+
+    if (response.status >= 200 && response.status < 300) {
+      return response.data ?? {};
+    }
+
+    // Propagar el rechazo de Mercado Libre con su status y motivo original
+    throw new HttpException(
+      {
+        statusCode: response.status,
+        message: `Mercado Libre rejected promotion activation for item ${itemId}`,
+        itemId,
+        meliStatus: response.status,
+        meliResponse: response.data,
       },
+      response.status,
     );
   }
 
@@ -152,12 +170,11 @@ export class SellerPromotionsRepository implements ISellerPromotionsRepository {
       promotionId,
     )}?${query.toString()}`;
 
-    const response = await this.meliHttpClient.deleteWithMeta<Record<string, unknown>>(
-      path,
-      {
-        appKey: PROMOTIONS_APP_KEY,
-      },
-    );
+    const response = await this.meliHttpClient.deleteWithMeta<
+      Record<string, unknown>
+    >(path, {
+      appKey: PROMOTIONS_APP_KEY,
+    });
 
     if (!response) return null;
 
@@ -198,12 +215,11 @@ export class SellerPromotionsRepository implements ISellerPromotionsRepository {
       path,
     });
 
-    const response = await this.meliHttpClient.deleteWithMeta<Record<string, unknown>>(
-      path,
-      {
-        appKey: PROMOTIONS_APP_KEY,
-      },
-    );
+    const response = await this.meliHttpClient.deleteWithMeta<
+      Record<string, unknown>
+    >(path, {
+      appKey: PROMOTIONS_APP_KEY,
+    });
 
     console.log('[MELI PROMOTIONS REMOVE ITEM] response', {
       itemId,

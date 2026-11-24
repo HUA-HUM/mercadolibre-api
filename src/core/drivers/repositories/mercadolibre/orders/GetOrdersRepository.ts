@@ -74,12 +74,17 @@ export class GetOrdersRepository implements IGetOrdersRepository {
     response: any,
     params: Pick<GetOrdersParams, 'limit' | 'offset'>,
   ): OrdersPage {
+    // MeliHttpClient devuelve null ante 400/403/404 de Mercado Libre
+    const results: unknown[] = Array.isArray(response?.results)
+      ? response.results
+      : [];
+
     return {
-      results: (response.results ?? []).map(MeliOrderMapper.toEntity),
+      results: results.map(MeliOrderMapper.toEntity),
       paging: {
-        total: response.paging?.total ?? 0,
-        offset: response.paging?.offset ?? params.offset,
-        limit: response.paging?.limit ?? params.limit,
+        total: response?.paging?.total ?? 0,
+        offset: response?.paging?.offset ?? params.offset,
+        limit: response?.paging?.limit ?? params.limit,
       },
     };
   }

@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { GetValidMeliAccessTokenInteractor } from 'src/core/interactors/GetValidMeliAccessTokenInteractor';
 import type {
   MeliDeleteResponse,
+  MeliPostResponse,
   MeliPutResponse,
   MeliRequestConfig,
 } from 'src/core/adapters/repositories/mercadolibre/http/IMeliHttpClient';
@@ -57,6 +58,33 @@ export class MeliHttpClient {
       });
 
       return response.data;
+    } catch (error) {
+      return MeliHttpErrorHandler.handle(error);
+    }
+  }
+
+  async postWithMeta<T>(
+    url: string,
+    body: unknown,
+    config?: MeliRequestConfig,
+  ): Promise<MeliPostResponse<T> | null> {
+    try {
+      const token = await this.getToken.execute(config?.appKey);
+
+      const response = await this.client.post<T>(url, body, {
+        ...this.toAxiosConfig(config),
+        validateStatus: (status) => status < 500,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          ...(config?.headers ?? {}),
+        },
+      });
+
+      return {
+        status: response.status,
+        data: response.data === '' ? null : (response.data ?? null),
+      };
     } catch (error) {
       return MeliHttpErrorHandler.handle(error);
     }
