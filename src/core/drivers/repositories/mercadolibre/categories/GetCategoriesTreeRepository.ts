@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { IMeliHttpClient } from 'src/core/adapters/repositories/mercadolibre/http/IMeliHttpClient';
 import { IGetCategoriesTreeRepository } from 'src/core/adapters/repositories/mercadolibre/categories/IGetCategoriesTreeRepository';
 import { Category } from 'src/core/entitis/mercadolibre/categories/Category';
@@ -26,7 +26,7 @@ export class GetCategoriesTreeRepository implements IGetCategoriesTreeRepository
     const category = await this.getRawCategoryById(categoryId);
 
     if (!category) {
-      throw new Error(`Category ${categoryId} not found`);
+      throw new NotFoundException(`Category ${categoryId} not found`);
     }
 
     return {
@@ -50,7 +50,9 @@ export class GetCategoriesTreeRepository implements IGetCategoriesTreeRepository
     };
   }
 
-  async getRawCategoryById(categoryId: string): Promise<MeliCategoryRaw | null> {
+  async getRawCategoryById(
+    categoryId: string,
+  ): Promise<MeliCategoryRaw | null> {
     return this.meliHttpClient.get<MeliCategoryRaw | null>(
       `/categories/${categoryId}`,
     );

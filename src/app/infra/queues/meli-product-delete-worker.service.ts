@@ -1,10 +1,11 @@
 import {
+  HttpException,
   Injectable,
   Logger,
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
-import { Job, Worker } from 'bullmq';
+import { Job, UnrecoverableError, Worker } from 'bullmq';
 import { GetMeliProductDetailService } from 'src/app/services/products/get/GetMeliProductDetailService';
 import {
   DeleteMeliProductJobData,
@@ -57,15 +58,42 @@ export class MeliProductDeleteWorkerService
   }
 
   private async processJob(job: Job<DeleteMeliProductJobData>) {
-    const result = await this.productDetailService.deleteProduct(
-      job.data.itemId,
-      job.data.appKey,
-    );
+    let result: Awaited<
+      ReturnType<GetMeliProductDetailService['deleteProduct']>
+    >;
+
+    try {
+      result = await this.productDetailService.deleteProduct(
+        job.data.itemId,
+        job.data.appKey,
+      );
+    } catch (error) {
+      if (this.isUnrecoverable(error)) {
+        // 4xx definitivos (permisos, payload, token sin reautorizar): no reintentar
+        throw new UnrecoverableError(
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      throw error;
+    }
 
     if (!result) {
-      throw new Error(`Meli product ${job.data.itemId} not found`);
+      // MeliHttpClient devuelve null ante 400/403/404: reintentar no cambia el resultado
+      throw new UnrecoverableError(
+        `Meli product ${job.data.itemId} not found or not accessible`,
+      );
     }
 
     return result;
+  }
+
+  private isUnrecoverable(error: unknown): boolean {
+    if (!(error instanceof HttpException)) {
+      return false;
+    }
+
+    const status = error.getStatus();
+    // 409 (optimistic locking) y 429 (rate limit) sí vale la pena reintentarlos
+    return status >= 400 && status < 500 && status !== 409 && status !== 429;
   }
 }

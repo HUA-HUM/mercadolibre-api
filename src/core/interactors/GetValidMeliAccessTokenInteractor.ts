@@ -10,6 +10,10 @@ const maskToken = (token: string): string =>
 export class GetValidMeliAccessTokenInteractor {
   private readonly refreshThresholdSeconds = 300;
 
+  // Un único refresh en vuelo por appKey: Mercado Libre invalida el
+  // refresh_token al usarlo, así que dos refresh concurrentes rompen el segundo.
+  private readonly inFlightRefresh = new Map<string, Promise<string>>();
+
   constructor(
     @Inject('IMadreMeliTokenRepository')
     private readonly tokenRepository: IMadreMeliTokenRepository,
@@ -28,13 +32,23 @@ export class GetValidMeliAccessTokenInteractor {
     }
 
     if (this.isTokenValid(token)) {
-      console.log(`[MELI TOKEN] using cached token for app "${appKey}"`, {
-        token: maskToken(token.access_token),
-        expires_at: token.expires_at,
-      });
       return token.access_token;
     }
 
+    const pending = this.inFlightRefresh.get(appKey);
+    if (pending) {
+      return pending;
+    }
+
+    const refresh = this.refresh(token, appKey).finally(() => {
+      this.inFlightRefresh.delete(appKey);
+    });
+    this.inFlightRefresh.set(appKey, refresh);
+
+    return refresh;
+  }
+
+  private async refresh(token: MeliToken, appKey: string): Promise<string> {
     console.warn(`[MELI TOKEN] token expired for app "${appKey}" → refreshing`);
 
     const refreshed = await this.authRepository.refreshToken(
@@ -53,13 +67,16 @@ export class GetValidMeliAccessTokenInteractor {
       );
     }
 
-    await this.tokenRepository.updateToken({
-      app_key: appKey,
-      access_token: refreshed.access_token,
-      refresh_token: refreshed.refresh_token,
-      expires_in: refreshed.expires_in,
-      expires_at: new Date(Date.now() + refreshed.expires_in * 1000),
-    }, appKey);
+    await this.tokenRepository.updateToken(
+      {
+        app_key: appKey,
+        access_token: refreshed.access_token,
+        refresh_token: refreshed.refresh_token,
+        expires_in: refreshed.expires_in,
+        expires_at: new Date(Date.now() + refreshed.expires_in * 1000),
+      },
+      appKey,
+    );
 
     console.log(`[MELI TOKEN] token refreshed and stored for app "${appKey}"`, {
       token: maskToken(refreshed.access_token),

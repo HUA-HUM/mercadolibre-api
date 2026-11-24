@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -77,7 +77,7 @@ Devuelve la categoría solicitada junto con sus subcategorías directas.
     const category = await this.service.getRawCategoryById(id);
 
     if (!category) {
-      throw new Error(`Category ${id} not found`);
+      throw new NotFoundException(`Category ${id} not found`);
     }
 
     return category;

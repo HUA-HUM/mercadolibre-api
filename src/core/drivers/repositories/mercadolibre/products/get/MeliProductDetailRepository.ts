@@ -108,6 +108,17 @@ type MeliMultiGetItemResponse = {
 };
 
 const DELETE_MAX_ATTEMPTS = 3;
+// Mercado Libre acepta como máximo 20 ids por multiget en /items?ids=
+const MULTIGET_MAX_IDS = 20;
+const DESCRIPTION_CONCURRENCY = 5;
+
+const chunk = <T>(values: T[], size: number): T[][] => {
+  const chunks: T[][] = [];
+  for (let i = 0; i < values.length; i += size) {
+    chunks.push(values.slice(i, i + size));
+  }
+  return chunks;
+};
 const DELETE_RETRY_DELAY_MS = 1000;
 
 @Injectable()
@@ -144,33 +155,48 @@ export class MeliProductDetailRepository implements IMeliProductDetailRepository
   }
 
   async getProductsDetail(itemIds: string[]): Promise<MeliProductDetail[]> {
-    const normalizedIds = itemIds
-      .map((itemId) => itemId.trim())
-      .filter((itemId) => itemId.length > 0);
+    const normalizedIds = [
+      ...new Set(
+        itemIds
+          .map((itemId) => itemId.trim())
+          .filter((itemId) => itemId.length > 0),
+      ),
+    ];
 
     if (normalizedIds.length === 0) {
       return [];
     }
 
-    const multiGetResponse = await this.httpClient.get<
-      MeliMultiGetItemResponse[] | null
-    >(`/items?ids=${encodeURIComponent(normalizedIds.join(','))}`);
+    const multiGetResponse: MeliMultiGetItemResponse[] = [];
+    for (const idsChunk of chunk(normalizedIds, MULTIGET_MAX_IDS)) {
+      const response = await this.httpClient.get<
+        MeliMultiGetItemResponse[] | null
+      >(`/items?ids=${encodeURIComponent(idsChunk.join(','))}`);
 
-    if (!multiGetResponse || !Array.isArray(multiGetResponse)) {
+      if (Array.isArray(response)) {
+        multiGetResponse.push(...response);
+      }
+    }
+
+    if (multiGetResponse.length === 0) {
       return [];
     }
 
-    const descriptions = await Promise.all(
-      normalizedIds.map(
-        async (itemId) =>
-          [
-            itemId,
-            await this.getProductDescription(itemId).catch(() => null),
-          ] as const,
-      ),
-    );
-
-    const descriptionMap = new Map(descriptions);
+    const descriptionMap = new Map<string, MeliDescriptionResponse | null>();
+    for (const idsChunk of chunk(normalizedIds, DESCRIPTION_CONCURRENCY)) {
+      const descriptions = await Promise.all(
+        idsChunk.map(
+          async (itemId) =>
+            [
+              itemId,
+              await this.getProductDescription(itemId).catch(() => null),
+            ] as const,
+        ),
+      );
+      descriptions.forEach(([itemId, description]) =>
+        descriptionMap.set(itemId, description),
+      );
+    }
 
     return multiGetResponse
       .filter(

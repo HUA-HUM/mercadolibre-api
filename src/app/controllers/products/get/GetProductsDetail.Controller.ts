@@ -217,9 +217,9 @@ export class GetProductsDetailController {
     type: Object,
   })
   async getProductsBulk(
-    @Query('ids') ids: string,
+    @Query('ids') ids?: string,
   ): Promise<MeliProductDetail[]> {
-    const itemIds = ids
+    const itemIds = (ids ?? '')
       .split(',')
       .map((itemId) => itemId.trim())
       .filter(Boolean);

@@ -10,6 +10,7 @@ import { NextFunction, Request, Response } from 'express';
 import { swaggerConfig } from './config/swagger.config';
 import { AppModule } from './app/modules/app.module';
 import { MeliProductDeleteQueueService } from './app/infra/queues/meli-product-delete-queue.service';
+import { isValidInternalApiKey } from './app/guards/InternalApiKeyGuard';
 
 const BULL_BOARD_PATH = '/admin/queues';
 
@@ -25,7 +26,7 @@ const bullBoardAuth = (
     return;
   }
 
-  if (request.headers['x-internal-api-key'] === apiKey) {
+  if (isValidInternalApiKey(request.headers['x-internal-api-key'], apiKey)) {
     next();
     return;
   }
@@ -38,7 +39,7 @@ const bullBoardAuth = (
       .toString('utf8')
       .split(':');
 
-    if (password === apiKey) {
+    if (isValidInternalApiKey(password, apiKey)) {
       next();
       return;
     }
