@@ -9,7 +9,8 @@ import { ProductVisits } from 'src/core/entitis/mercadolibre/metrics/products/vi
 
 // El total de visitas cambia lento: cachearlo evita pegarle a ML en cada request
 export const VISITS_CACHE_TTL_MS = 30 * 60 * 1000;
-export const VISITS_BULK_MAX_IDS = 500;
+// ML exige una llamada por id: lotes chicos para no exceder timeouts ni el rate limit
+export const VISITS_BULK_MAX_IDS = 100;
 const VISITS_CACHE_MAX_ENTRIES = 50_000;
 
 type CacheEntry = { total: number; expiresAt: number };
