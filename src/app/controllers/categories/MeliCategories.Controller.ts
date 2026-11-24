@@ -6,11 +6,14 @@ import {
   ApiParam,
   ApiResponse,
 } from '@nestjs/swagger';
+import { Public } from 'src/app/guards/Public.decorator';
 import { GetCategoriesTreeService } from 'src/app/services/categories/GetCategoriesTreeService';
 import { Category } from 'src/core/entitis/mercadolibre/categories/Category';
 import { MeliCategoryRaw } from 'src/core/entitis/mercadolibre/categories/MeliCategoryRaw';
 
 @ApiTags('MercadoLibre - Categories')
+// Categorías de ML: datos públicos, los consumen madre-api y madre-ai-matcher sin API key
+@Public()
 @Controller('meli/categories')
 export class MeliCategoriesController {
   constructor(private readonly service: GetCategoriesTreeService) {}

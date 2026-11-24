@@ -5,7 +5,9 @@ import {
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { IS_PUBLIC_KEY } from './Public.decorator';
 
 const digest = (value: string): Buffer =>
   createHash('sha256').update(value).digest();
@@ -19,7 +21,18 @@ export const isValidInternalApiKey = (
 
 @Injectable()
 export class InternalApiKeyGuard implements CanActivate {
+  constructor(private readonly reflector: Reflector) {}
+
   canActivate(context: ExecutionContext): boolean {
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    if (isPublic) {
+      return true;
+    }
+
     const request = context
       .switchToHttp()
       .getRequest<{ headers: Record<string, unknown> }>();
