@@ -1,100 +1,123 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# MercadoLibre API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Microservicio interno de **Tienda Lo Quiero Acá** que hace de puerta de entrada a Mercado Libre para el resto de los sistemas.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Los demás servicios no hablan directo con Mercado Libre: le piden a este servicio las publicaciones, visitas, ventas, categorías y promociones, y este se encarga de autenticarse, respetar los límites de Mercado Libre y devolver los datos en un formato estable. También ejecuta los cambios que sí se hacen en Mercado Libre: cambiar un precio, eliminar publicaciones y sumar o sacar publicaciones de campañas.
 
-## Description
+## Qué hace
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+| | |
+|---|---|
+| **Publicaciones** | Lista las publicaciones de la cuenta y devuelve el detalle, la descripción y la comisión de cada una. |
+| **Cambios en publicaciones** | Cambia el precio y elimina publicaciones, de a una o en lote (en segundo plano, con reintentos). |
+| **Visitas** | Devuelve el total de visitas de cada publicación, de a una o en lote. |
+| **Ventas** | Lista las ventas de la cuenta, en general o de una publicación. |
+| **Categorías** | Devuelve el árbol de categorías de Mercado Libre Argentina. |
+| **Promociones** | Consulta las campañas disponibles y suma o saca publicaciones de ellas. |
+| **Credenciales** | Usa el token de Mercado Libre guardado en Madre y lo renueva solo antes de que venza. |
 
-## Project setup
+## Cómo funciona
 
-```bash
-$ npm install
+```mermaid
+flowchart LR
+    subgraph Consumidores
+        CS[catalog-sync-api]
+        MA[madre-api]
+        AI[madre-ai-matcher]
+        PA[panel-admin]
+    end
+    CS & MA & AI & PA -->|x-internal-api-key| API[MercadoLibre API]
+    API -->|token de la app| MADRE[(Madre<br/>guarda los tokens)]
+    API -->|consultas y cambios| ML[Mercado Libre]
+    API -->|eliminación en lote| REDIS[(Redis<br/>cola BullMQ)]
 ```
 
-## Compile and run the project
+Cada pedido pasa por los mismos pasos: se valida la clave interna, se obtiene un token vigente de Mercado Libre desde Madre (renovándolo si le faltan menos de 5 minutos), se consulta Mercado Libre y se traduce la respuesta. Si Mercado Libre limita por tasa, el servicio responde `429` con el tiempo de espera, en lugar de inventar un resultado.
+
+El detalle de cada función está en la [guía funcional](docs/funcional.md).
+
+## Ambientes
+
+| Ambiente | URL base |
+|---|---|
+| Producción | `https://api.meli.loquieroaca.com` |
+| Local | `http://localhost:8080` |
+
+Además de los endpoints, el servicio publica tres herramientas:
+
+| Herramienta | Ruta | Para qué |
+|---|---|---|
+| Documentación | `/docs` | Esta documentación, navegable y con buscador. |
+| Swagger | `/api/docs` | Probar los endpoints desde el navegador. |
+| Bull Board | `/admin/queues` | Ver el avance de las eliminaciones en lote. |
+
+## Autenticación
+
+Casi todos los endpoints piden el mismo header:
+
+| Header | Valor |
+|---|---|
+| `x-internal-api-key` | La clave interna del servicio (`INTERNAL_API_KEY`). |
+
+Sin el header la respuesta es `401 Internal API key missing`; con una clave incorrecta, `401 Invalid internal API key`.
+
+Hay cuatro excepciones, abiertas porque devuelven datos que ya son públicos en Mercado Libre: las tres rutas de categorías y la descripción de una publicación. El detalle está en la [referencia de la API](docs/api.md#autenticación).
+
+## Primer llamado
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+curl -s "https://api.meli.loquieroaca.com/meli/products/MLA1538120729" \
+  -H "x-internal-api-key: $INTERNAL_API_KEY"
 ```
 
-## Run tests
+Devuelve el detalle de la publicación: título, precio, stock, estado, fotos y descripción.
+
+## Documentación
+
+**Funcional**
+
+| Documento | Qué explica |
+|---|---|
+| [Guía funcional](docs/funcional.md) | Qué hace el servicio con publicaciones, visitas, ventas, categorías y promociones, y qué no hace. |
+| [Errores y límites](docs/errores.md) | Qué responde ante cada error, qué significa y qué hacer, y los límites que impone Mercado Libre. |
+
+**API**
+
+| Documento | Qué explica |
+|---|---|
+| [Referencia de la API](docs/api.md) | Todos los endpoints con parámetros, valores por defecto, ejemplos y respuestas. |
+
+**Técnico**
+
+| Documento | Qué explica |
+|---|---|
+| [Arquitectura y configuración](docs/tecnico.md) | Capas del código, integraciones, la cola de eliminación, reintentos, variables de entorno y tests. |
+| [Operación](docs/operacion.md) | Deploy, verificación y qué hacer ante los problemas más frecuentes. |
+
+## Desarrollo local
+
+Requisitos: Node.js 20 o superior y un Redis accesible.
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm install
+cp .env.example .env    # completar las credenciales
+npm run start:dev       # http://localhost:8080
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+> **Cuidado con el `.env`:** si apunta al Redis de producción, el servicio local también procesa la cola de eliminaciones de producción.
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm test                # tests unitarios
+npm run lint            # eslint con --fix
+npx tsc --noEmit        # chequeo de tipos
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Para ver la documentación como sitio, sin levantar Redis ni el resto del servicio:
 
-## Resources
+```bash
+npm run docs:preview    # http://localhost:4310/docs
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+## Stack
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
-# mercadolibre-api
-# mercadolibre-api
+NestJS 11 · TypeScript · BullMQ sobre Redis · Axios · Jest.

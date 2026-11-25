@@ -11,8 +11,10 @@ import { swaggerConfig } from './config/swagger.config';
 import { AppModule } from './app/modules/app.module';
 import { MeliProductDeleteQueueService } from './app/infra/queues/meli-product-delete-queue.service';
 import { isValidInternalApiKey } from './app/guards/InternalApiKeyGuard';
+import { createDocsSiteRouter } from './app/infra/docs/docs-site.router';
 
 const BULL_BOARD_PATH = '/admin/queues';
+const SWAGGER_PATH = '/api/docs';
 
 const bullBoardAuth = (
   request: Request,
@@ -53,7 +55,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, document);
+  SwaggerModule.setup(SWAGGER_PATH, app, document);
 
   const queueService = app.get(MeliProductDeleteQueueService);
   const serverAdapter = new ExpressAdapter();
@@ -66,6 +68,44 @@ async function bootstrap() {
 
   app.use(BULL_BOARD_PATH, bullBoardAuth, serverAdapter.getRouter());
 
+  if (readBooleanEnv('DOCS_SITE_ENABLED', true)) {
+    const docsPath = readOptionalEnv('DOCS_SITE_PATH') ?? '/docs';
+    const username = readOptionalEnv('DOCS_SITE_USER');
+    const password = readOptionalEnv('DOCS_SITE_PASSWORD');
+
+    // With both set the site asks for them and publishes every page; without
+    // them it is open and leaves out the page about the server. The markdown
+    // is read from the repository checkout the service runs from.
+    app.use(
+      docsPath,
+      createDocsSiteRouter({
+        basePath: docsPath,
+        rootDirectory: process.cwd(),
+        credentials:
+          username !== undefined && password !== undefined
+            ? { username, password }
+            : undefined,
+      }),
+    );
+  }
+
   await app.listen(Number(process.env.APP_PORT ?? 8080));
 }
 void bootstrap();
+
+function readOptionalEnv(name: string): string | undefined {
+  const value = process.env[name];
+  if (value === undefined || value.trim() === '') {
+    return undefined;
+  }
+  return value.trim();
+}
+
+function readBooleanEnv(name: string, defaultValue: boolean): boolean {
+  const rawValue = readOptionalEnv(name);
+  if (rawValue === undefined) {
+    return defaultValue;
+  }
+
+  return ['1', 'true', 'yes', 'y'].includes(rawValue.toLowerCase());
+}
