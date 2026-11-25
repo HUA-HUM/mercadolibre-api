@@ -18,11 +18,21 @@ export class MeliVisitsController {
   @ApiOperation({
     summary: 'Obtiene visitas totales de varios items en una sola llamada',
     description: `
-Versión en lote de \`GET /meli/items/:itemId/visits\`. Usar esta para syncs:
-agrupa los ids de a 50 por llamada a Mercado Libre y cachea los totales 30 minutos.
+Versión en lote de \`GET /meli/items/:itemId/visits\`. Mercado Libre acepta
+**un solo id por llamada** en \`/visits/items\`, así que el proxy consulta los ids
+de a uno (3 en paralelo) y cachea los totales 30 minutos. Ahorra round-trips
+entre servicios, pero **no** reduce las llamadas a Mercado Libre.
 
-📌 Máximo 500 ids por request. Si Mercado Libre aplica rate limit se responde
-**429** con header \`Retry-After\`.
+📌 **Contrato**
+- Máximo 100 ids por request.
+- Solo se devuelven ids con una medición real de Mercado Libre. Los ids que ML
+  no contestó (inexistentes, sin permiso, lote rechazado) **se omiten**: un
+  \`total: 0\` es siempre un 0 real.
+- Los fallos no se cachean: un id omitido se puede volver a pedir enseguida.
+- Si ML aplica rate limit a mitad del lote, se devuelve lo medido hasta ahí
+  (los demás ids se omiten); si no se llegó a medir nada, **429** con header
+  \`Retry-After\`.
+- Si ML no contestó ningún id, **502**. Nunca un 200 con ceros por un fallo.
     `,
   })
   @ApiQuery({
@@ -41,6 +51,10 @@ agrupa los ids de a 50 por llamada a Mercado Libre y cachea los totales 30 minut
     },
   })
   @ApiResponse({ status: 429, description: 'Rate limit de Mercado Libre' })
+  @ApiResponse({
+    status: 502,
+    description: 'Mercado Libre no devolvió visitas para ningún id',
+  })
   getVisitsBulk(@Query('ids') ids?: string) {
     return this.service.getProductsVisits((ids ?? '').split(','));
   }

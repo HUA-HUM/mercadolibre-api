@@ -1,3 +1,4 @@
+import { Public } from 'src/app/guards/Public.decorator';
 import {
   Controller,
   Delete,
@@ -260,6 +261,8 @@ export class GetProductsDetailController {
     return product;
   }
 
+  // Descripción de un item: dato público en ML, la consume madre-api sin API key
+  @Public()
   @Get(':itemId/description')
   @ApiOperation({
     summary: 'Obtener descripción cruda del producto por itemId',
