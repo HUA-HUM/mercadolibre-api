@@ -57,6 +57,9 @@ Responden `400 Bad Request`. Reintentar el mismo pedido no sirve: hay que correg
 | `promotion_id and promotion_type are required` | Sacar de una campaña | Falta alguno de los dos. |
 | `promotion_id, promotion_type and offer_id are required …` | Sacar de una campaña | Falta `offer_id` en una campaña que no es `DEAL`. |
 | `CategoryId is required` | Categorías | Falta el número de categoría. |
+| `OrderId must be numeric` · `PackId must be numeric` | Detalle de venta o de carrito, factura | El número tiene algo que no es un dígito. |
+| `A PDF is required in the multipart field "fiscal_document"` | Subir factura | No vino el archivo. |
+| `Only PDF or XML files are accepted (…)` · `Exactly one PDF is required` · `At most one XML is accepted` | Subir factura | Archivos de otro tipo, o más de un PDF o de un XML. |
 
 ---
 
@@ -83,6 +86,8 @@ Responden `404 Not Found`. Significa que Mercado Libre no devolvió el dato: la 
 | `Listing prices for product … not found` | Comisión |
 | `Mercado Libre did not return visits for item …` | Visitas de una publicación |
 | `Category … not found` | Categoría |
+| `Order with id … not found` | Detalle de una venta (también si se pasa un número de carrito), factura |
+| `Pack with id … not found` | Detalle de un carrito |
 | `Promotions not found for configured Mercado Libre seller` | Campañas disponibles |
 | `Promotion items not found for promotion …` | Publicaciones de una campaña |
 | `Promotion activation failed for item …` | Sumar a una campaña, cuando Mercado Libre no devolvió respuesta |
@@ -150,6 +155,7 @@ Si Mercado Libre se niega a finalizar, eliminar o cambiar el precio de una publi
 | `close` | Finalizar la publicación antes de eliminarla. |
 | `delete` | Eliminarla. |
 | `update_price` | Cambiar el precio. |
+| `upload_invoice` | Adjuntar la factura a una venta (el mensaje nombra el carrito: `Mercado Libre could not attach the invoice to pack …`). |
 
 Si Mercado Libre respondió `403` (falta de permiso sobre la publicación), el código es `403 Forbidden` en lugar de `502`. **Qué hacer:** leer `meliResponse`; casi siempre es la publicación en un estado que no admite el cambio, o una cuenta que no es la dueña.
 
@@ -161,6 +167,10 @@ Si Mercado Libre respondió `403` (falta de permiso sobre la publicación), el c
 | Sacar una publicación | Con el código y el cuerpo exactos de Mercado Libre. |
 | Eliminar una campaña | `502`, con lo que contestó Mercado Libre en `upstream`. |
 
+
+### La venta ya tiene factura
+
+`409 Conflict` al subir una factura: `Order … already has an invoice in Mercado Libre. Send force=true to upload another one.` La respuesta trae en `documents` lo que Mercado Libre tiene cargado. **Qué hacer:** si es la misma factura, nada. Si es una nueva (por ejemplo, después de una nota de crédito), repetir con `force=true`.
 ---
 
 ## Permiso de Mercado Libre vencido o inexistente

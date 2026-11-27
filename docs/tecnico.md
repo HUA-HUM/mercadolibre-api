@@ -63,6 +63,8 @@ A diferencia de un hexágono estricto, `core/drivers` usa NestJS (`@Injectable`,
 | Visitas: memoria de 30 minutos y tope del lote | `app/services/metrics/products/visits/meli-visitsService.ts` |
 | Promociones | `core/drivers/repositories/mercadolibre/promotions/SellerPromotionsRepository.ts` |
 | Ventas | `core/drivers/repositories/mercadolibre/orders/GetOrdersRepository.ts` |
+| Detalle de venta y carrito | `core/drivers/repositories/mercadolibre/orders/GetOrderDetailRepository.ts` |
+| Factura de una venta | `core/drivers/repositories/mercadolibre/orders/OrderInvoiceRepository.ts` |
 | Cola de eliminación | `app/infra/queues/` |
 | Sitio de documentación | `app/infra/docs/docs-site.router.ts` |
 
