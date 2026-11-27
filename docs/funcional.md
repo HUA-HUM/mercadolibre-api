@@ -145,6 +145,31 @@ También se pueden pedir las ventas de una publicación puntual. Para eso se usa
 
 Cada venta trae su número, estado, fecha de creación y de cierre, importe total, moneda y los productos vendidos con cantidad y precio unitario.
 
+### Detalle de una venta
+
+Para una venta puntual se puede pedir todo lo que Mercado Libre sabe de ella, en una sola consulta. Es lo que hace falta para facturarla:
+
+- **Productos:** precio de lista, precio cobrado, cantidad y comisión de Mercado Libre.
+- **Pago:** medio de pago, cuotas, cupón y lo que pagó el comprador en total.
+- **Descuentos:** cuánto se descontó y quién lo pone, el vendedor o Mercado Libre.
+- **Comprador:** nombre o razón social, DNI o CUIT, condición frente al IVA (por ejemplo Consumidor Final o Responsable Inscripto) y domicilio fiscal.
+- **Envío:** estado, tipo de logística y cuánto paga el envío el comprador y cuánto el vendedor.
+
+Si Mercado Libre no informa alguno de esos bloques, la venta se devuelve igual, con ese bloque vacío.
+
+### Carritos
+
+Cuando un comprador paga varios productos juntos, Mercado Libre arma un **carrito**: varias ventas con un solo pago y un solo envío. El carrito tiene su propio número, distinto del de cada venta. Se puede pedir un carrito y recibir el detalle de todas sus ventas.
+
+### Factura de la venta
+
+Se puede adjuntar el PDF de la factura a una venta, y el comprador lo ve en el detalle de su compra en Mercado Libre. Junto al PDF se puede adjuntar su XML.
+
+- Siempre se indica el **número de venta**. Si la venta está en un carrito, la factura queda en el carrito, como pide Mercado Libre.
+- **Solo facturas con CAE.** Antes del CAE el comprobante no es válido para AFIP.
+- Si la venta ya tiene una factura, el servicio no sube otra salvo que se le pida explícitamente (por ejemplo, la factura nueva después de una nota de crédito). Así se evita mandarle dos veces la misma factura al comprador.
+- También se puede consultar si una venta ya tiene factura cargada.
+
 ---
 
 ## Categorías

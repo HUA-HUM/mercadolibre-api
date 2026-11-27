@@ -20,7 +20,7 @@ export INTERNAL_API_KEY="..."
 | [Publicaciones](#publicaciones) | Listado · Detalle · Detalle en lote · Descripción · Comisión |
 | [Cambios en publicaciones](#cambios-en-publicaciones) | Cambiar precio · Eliminar · Eliminar en lote |
 | [Visitas](#visitas) | De una publicación · En lote |
-| [Ventas](#ventas) | De la cuenta · De una publicación |
+| [Ventas](#ventas) | De la cuenta · De una publicación · Detalle de una venta · Detalle de un carrito · Factura de una venta |
 | [Categorías](#categorías) | Principales · Una categoría · Una categoría, completa |
 | [Promociones](#promociones) | Campañas · Publicaciones de una campaña · Sumar · Sacar · Eliminar campaña |
 | [Credenciales](#credenciales) | Token guardado |
@@ -394,6 +394,251 @@ GET /meli/products/:itemId/orders
 ```
 
 Mismos parámetros y respuesta que el anterior. Usa el buscador de ventas de Mercado Libre (`q=<itemId>`), que busca el texto entre número de venta, número y título de la publicación y apodo del comprador.
+
+
+### Detalle de una venta
+
+```
+GET /meli/orders/:orderId
+```
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `orderId` | path | Número de venta de Mercado Libre (solo dígitos). |
+
+Junta en una respuesta lo que Mercado Libre informa en cinco lugares distintos: la venta, los datos de facturación del comprador, los descuentos, el envío y los costos del envío. Pensado para armar un comprobante sin otra consulta.
+
+```bash
+curl -s "$MELI_API_URL/meli/orders/2000019814868660" \
+  -H "x-internal-api-key: $INTERNAL_API_KEY"
+```
+
+```json
+{
+  "id": 2000019814868660,
+  "packId": null,
+  "status": "paid",
+  "statusDetail": null,
+  "dateCreated": "2026-11-27T08:37:45.000-04:00",
+  "dateClosed": "2026-11-27T08:37:47.000-04:00",
+  "lastUpdated": "2026-11-27T08:37:52.000-04:00",
+  "currencyId": "ARS",
+  "totalAmount": 846999,
+  "paidAmount": 846999,
+  "tags": ["b2b", "order_has_discount", "paid", "not_delivered"],
+  "items": [
+    {
+      "itemId": "MLA1771886225",
+      "title": "Teclado Industrial…",
+      "categoryId": "MLA418448",
+      "variationId": null,
+      "sellerSku": "B01CT0OK4U",
+      "quantity": 1,
+      "unitPrice": 846999,
+      "grossPrice": 846999,
+      "saleFee": 226347.71,
+      "listingTypeId": "gold_pro"
+    }
+  ],
+  "payments": [
+    {
+      "id": 190809605831,
+      "status": "approved",
+      "statusDetail": "accredited",
+      "paymentMethodId": "visa",
+      "paymentType": "credit_card",
+      "installments": 9,
+      "installmentAmount": 88555.44,
+      "transactionAmount": 846999,
+      "transactionAmountRefunded": 0,
+      "taxesAmount": 0,
+      "shippingCost": 0,
+      "couponAmount": 50000,
+      "totalPaidAmount": 796999,
+      "marketplaceFee": 0,
+      "dateApproved": "2026-11-27T08:37:47.000-04:00"
+    }
+  ],
+  "discounts": [
+    {
+      "type": "coupon",
+      "fundingMode": null,
+      "offerId": null,
+      "itemId": "MLA1771886225",
+      "quantity": 1,
+      "amounts": { "total": 50000, "seller": 50000, "meli": null }
+    }
+  ],
+  "buyer": {
+    "id": 123456789,
+    "nickname": "COMPRADOR123",
+    "billing": {
+      "firstName": "EMPRESA SA",
+      "lastName": null,
+      "identificationType": "CUIT",
+      "identificationNumber": "30123456789",
+      "taxpayerType": { "id": "01", "description": "IVA Responsable Inscripto" },
+      "customerType": "BU",
+      "address": {
+        "streetName": "Av. Corrientes",
+        "streetNumber": "1234",
+        "cityName": "La Plata",
+        "stateCode": "B",
+        "stateName": "BUENOS AIRES",
+        "zipCode": "1900",
+        "countryId": "AR"
+      }
+    }
+  },
+  "shipping": {
+    "id": 48648617209,
+    "status": "pending",
+    "substatus": "manufacturing",
+    "mode": "me2",
+    "logisticType": "xd_drop_off",
+    "trackingNumber": null,
+    "trackingMethod": "MEL Distribution",
+    "declaredValue": 846999,
+    "dateCreated": "2026-11-27T08:37:45.573-04:00",
+    "costs": { "grossAmount": 26060, "buyerCost": 0, "sellerCost": 8290 }
+  }
+}
+```
+
+Qué significa cada importe:
+
+| Campo | Qué es |
+|---|---|
+| `items[].grossPrice` | Precio de lista por unidad, antes de descuentos. |
+| `items[].unitPrice` | Precio cobrado por unidad, después de los descuentos del vendedor. |
+| `items[].saleFee` | Comisión de Mercado Libre **por unidad**. |
+| `totalAmount` | Suma de los productos a `unitPrice`. |
+| `paidAmount` | Lo que Mercado Libre da por pagado. **Incluye el cupón**: en el ejemplo es 846.999 aunque el comprador puso 796.999. |
+| `payments[].couponAmount` | Cupón aplicado en el pago. |
+| `payments[].totalPaidAmount` | Lo que efectivamente pagó el comprador. En el ejemplo, 846.999 − 50.000 de cupón = 796.999. |
+| `payments[].installments` · `installmentAmount` | Cuotas y valor de cada una. |
+| `discounts[].amounts` | Descuento total y la parte que pone cada lado (`seller`, `meli`). `fundingMode` dice quién lo financia, cuando Mercado Libre lo informa. |
+| `shipping.costs.grossAmount` | Costo de lista del envío. |
+| `shipping.costs.buyerCost` · `sellerCost` | Lo que paga por el envío el comprador y lo que paga el vendedor. |
+
+Datos de facturación del comprador (`buyer.billing`):
+
+| Campo | Qué es |
+|---|---|
+| `identificationType` · `identificationNumber` | `DNI` o `CUIT` y su número. |
+| `taxpayerType` | Condición frente al IVA, como la informa Mercado Libre. Vistos en la cuenta: `05` Consumidor Final, `01` IVA Responsable Inscripto. |
+| `customerType` | `CO` persona, `BU` empresa. |
+| `firstName` · `lastName` | En una empresa la razón social viene en `firstName` y `lastName` viene `null`. |
+| `address` | Domicilio fiscal. |
+
+Reglas de la respuesta:
+
+- Si Mercado Libre no devuelve la facturación, los descuentos o el envío, ese bloque viene `null` (o `[]` los descuentos) y la venta se devuelve igual.
+- Si la venta no tiene envío, `shipping` es `null`.
+- Un `429` en cualquiera de las cinco consultas hace fallar todo el pedido con `429` y `Retry-After`: nunca devuelve un detalle a medias por un límite de Mercado Libre.
+- **Incluye datos personales del comprador.** Usarlo solo desde sistemas que los necesiten (por ejemplo, facturación).
+
+| Respuesta | Cuándo |
+|---|---|
+| `400 OrderId must be numeric` | El número tiene algo que no es un dígito. |
+| `404 Order with id … not found` | La venta no existe, no es de la cuenta, o es un número de carrito. |
+
+### Detalle de un carrito
+
+```
+GET /meli/packs/:packId
+```
+
+Un carrito (*pack*) agrupa varias ventas que el comprador pagó juntas y que viajan en un mismo envío. Cada venta trae su `packId`; si es `null`, la venta no está en un carrito. El número de carrito y el de venta **no son intercambiables**: pedir un carrito en `/meli/orders/:orderId` da `404`.
+
+```bash
+curl -s "$MELI_API_URL/meli/packs/2000016292307607" \
+  -H "x-internal-api-key: $INTERNAL_API_KEY"
+```
+
+```json
+{
+  "id": 2000016292307607,
+  "status": "released",
+  "shippingId": 48648448328,
+  "dateCreated": "2026-11-27T07:47:08.000-0400",
+  "orders": [ { "id": 2000019813708728, "packId": 2000016292307607, "…": "mismo formato que el detalle de una venta" } ]
+}
+```
+
+| Respuesta | Cuándo |
+|---|---|
+| `400 PackId must be numeric` | El número tiene algo que no es un dígito. |
+| `404 Pack with id … not found` | El carrito no existe o no es de la cuenta. |
+
+
+### Factura de una venta
+
+Adjunta el PDF de la factura a la venta en Mercado Libre, para que el comprador lo vea en el detalle de su compra. También permite consultar si ya tiene una.
+
+Mercado Libre guarda la factura en el **carrito**. Si la venta no está en un carrito, la guarda en la venta misma. El servicio lo resuelve solo: siempre se le pasa el número de venta, y la respuesta dice dónde quedó (`packId`).
+
+**Subir solo comprobantes con CAE.** Antes de pedir el CAE en Xubio, la factura no es válida para AFIP.
+
+#### Consultar
+
+```
+GET /meli/orders/:orderId/invoice
+```
+
+```bash
+curl -s "$MELI_API_URL/meli/orders/2000019814868660/invoice" \
+  -H "x-internal-api-key: $INTERNAL_API_KEY"
+```
+
+```json
+{
+  "orderId": "2000019814868660",
+  "packId": "2000019814868660",
+  "hasInvoice": false,
+  "documents": null
+}
+```
+
+`documents` es la respuesta de Mercado Libre tal cual. Es `null` cuando no hay nada cargado.
+
+#### Subir
+
+```
+POST /meli/orders/:orderId/invoice
+```
+
+| Parámetro | Tipo | Descripción |
+|---|---|---|
+| `orderId` | path | Número de venta. |
+| `fiscal_document` | multipart | Un PDF, obligatorio. Se puede sumar un XML en el mismo campo. |
+| `force` | query | `true` para subir aunque ya haya una factura (por ejemplo, la nueva después de una nota de crédito). |
+
+```bash
+curl -s -X POST "$MELI_API_URL/meli/orders/2000019814868660/invoice" \
+  -H "x-internal-api-key: $INTERNAL_API_KEY" \
+  -F "fiscal_document=@factura.pdf;type=application/pdf"
+```
+
+```json
+{
+  "orderId": "2000019814868660",
+  "packId": "2000019814868660",
+  "meliResponse": { "…": "lo que respondió Mercado Libre" }
+}
+```
+
+| Respuesta | Cuándo |
+|---|---|
+| `400 A PDF is required in the multipart field "fiscal_document"` | No vino ningún archivo en `fiscal_document`. |
+| `400 Only PDF or XML files are accepted (…)` | Vino un archivo que no es PDF ni XML. |
+| `400 Exactly one PDF is required` · `At most one XML is accepted` | Vinieron dos PDF o dos XML. |
+| `404 Order with id … not found` | La venta no existe o no es de la cuenta. |
+| `409 Order … already has an invoice in Mercado Libre…` | Ya hay una factura. Trae `documents` con lo que hay. Repetir con `force=true` para subir otra. |
+| `403` · `502 Mercado Libre could not attach the invoice to pack …` | Mercado Libre la rechazó. Traen `meliStatus` y `meliResponse` con su respuesta. |
+| `429` | Límite de consultas de Mercado Libre: esperar `Retry-After`. |
+
+El servicio acepta archivos de hasta 10 MB. **Mercado Libre puede tener un límite menor**, que no está comprobado. Si lo supera, la respuesta es `502` con el motivo en `meliResponse`.
 
 ---
 
